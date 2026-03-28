@@ -182,11 +182,6 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         df = df.drop(columns=["useless_column_1", "useless_column_2"])
     """
 
-    # --- Derive Type from subordination dummy if present ---
-    if "Subordonnee_dummy" in df.columns and "Type" not in df.columns:
-        df["Type"] = df["Subordonnee_dummy"].map({0: "Senior", 1: "Subordinated"})
-        print("  Derived 'Type' from 'Subordonnee_dummy'")
-
     FUNDAMENTAL_COLS = [
     "PE LTM", "Price Cont Op Earning", "PB LTM", "PB / PTangibleBook LTM", "PFCF LTM",
     "P to CFO", "EV to Ebit", "EV to Ebit FY1 CIQ", "EV to Sales LTM", "EV To EBITDA LTM",

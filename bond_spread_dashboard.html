@@ -823,7 +823,6 @@
     cursor: pointer;
     font-weight: 600;
     transition: all 0.15s;
-    margin-top: 16px;
   }
   .settings-apply:hover { opacity: 0.9; }
 
@@ -1948,9 +1947,9 @@ function renderSettingsPanel() {
       </div>
     </div>
 
-    <div style="display:flex;align-items:center">
-      <button class="settings-apply" onclick="applySettings()">APPLY & RELOAD</button>
-      <button class="settings-reset" onclick="resetSettings()">RESET DEFAULTS</button>
+<div style="display:flex;gap:8px;margin-top:16px">
+      <button class="settings-apply" onclick="applySettings()" style="flex:1;margin:0">APPLY & RELOAD</button>
+      <button class="settings-reset" onclick="resetSettings()" style="flex:1">RESET DEFAULTS</button>
     </div>`;
 
   box.innerHTML = html;
@@ -2028,15 +2027,19 @@ function rebuildFromSettings() {
   FIELD_LABELS = {};
   CFG.axes.forEach(a => { FIELD_LABELS[a.key] = a.label; });
 
-  // reset state
+// reset state — preserve valid selections
   const defX = CFG.axes.find(a => a.default_x);
   const defY = CFG.axes.find(a => a.default_y);
   if (defX) state.xField = defX.key;
   if (defY) state.yField = defY.key;
 
-  state.selections = [];
+  // keep selections whose group keys all still exist in the new config
+  const newGroupKeys = new Set(CFG.groups.map(g => g.key));
+  state.selections = state.selections.filter(sel =>
+    CFG.groups.every(g => sel[g.key] != null)
+  );
+
   state.picker = {};
-  state.highlightedISIN = null;
   CFG.groups.forEach(g => { state.picker[g.key] = g.default ?? null; });
 
   SKIP_IN_TABLE = new Set();
