@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pi² — Curve Fitting Reference</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:      #0a0c0f;
+    --surface: #111418;
+    --border:  #1e2329;
+    --border2: #2a313b;
+    --text:    #c8d0dc;
+    --muted:   #4e5a6a;
+    --accent:  #00d4aa;
+    --accent2: #ff6b35;
+    --accent3: #4d9fff;
+    --warn:    #f0b429;
+    --neg:     #ff4757;
+    --panel:   #13171d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+  .logo span { color: var(--muted); font-weight: 300; }
+
+  .content {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 48px 28px 120px;
+  }
+
+  h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 48px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-top: 56px;
+    margin-bottom: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h2 .method-num {
+    color: var(--muted);
+    font-weight: 300;
+    margin-right: 8px;
+  }
+
+  .method-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    margin-top: 16px;
+    margin-bottom: 36px;
+  }
+
+  .method-card p {
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+  .method-card p:last-child { margin-bottom: 0; }
+
+  .formula-block {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    padding: 16px 20px;
+    margin: 16px 0;
+    text-align: center;
+    font-size: 15px;
+    overflow-x: auto;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag.green  { border-color: var(--accent); color: var(--accent); }
+  .tag.blue   { border-color: var(--accent3); color: var(--accent3); }
+  .tag.orange { border-color: var(--accent2); color: var(--accent2); }
+  .tag.yellow { border-color: var(--warn); color: var(--warn); }
+
+  .param-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin: 16px 0;
+  }
+  .param-table th {
+    text-align: left;
+    padding: 6px 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .param-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .param-table td:first-child {
+    color: var(--accent3);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .param-table td:last-child {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .when-box {
+    border-left: 2px solid var(--accent);
+    padding: 10px 16px;
+    margin: 16px 0;
+    background: rgba(0, 212, 170, 0.04);
+    font-size: 13px;
+  }
+  .when-box strong {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .warn-box {
+    border-left: 2px solid var(--warn);
+    padding: 10px 16px;
+    margin: 16px 0;
+    background: rgba(240, 180, 41, 0.04);
+    font-size: 13px;
+  }
+  .warn-box strong {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--warn);
+    text-transform: uppercase;
+  }
+
+  .dash-demo {
+    display: inline-block;
+    width: 40px;
+    height: 0;
+    border-top: 2px dashed var(--accent3);
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .dash-solid  { border-top-style: solid; }
+  .dash-short  { border-top: 2px dotted var(--accent3); }
+  .dash-long   { border-top: 2px dashed var(--accent3); stroke-dasharray: 8 3; }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    background: var(--bg);
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    color: var(--accent3);
+  }
+
+  a { color: var(--accent3); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .auto-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin: 16px 0;
+  }
+  .auto-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .auto-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .auto-table td:first-child {
+    color: var(--warn);
+    font-weight: 500;
+  }
+  .auto-table td:nth-child(2) {
+    color: var(--accent3);
+  }
+
+  .section-intro {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.8;
+  }
+
+  .katex { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    π² <span>/ CURVE FITTING REFERENCE</span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;letter-spacing:0.1em">
+    SPREAD ANALYTICS
+  </div>
+</header>
+
+<div class="content">
+
+<h1>Curve Fitting Methods</h1>
+<p class="subtitle">How the dashboard estimates the spread-to-maturity relationship</p>
+
+<p class="section-intro">
+  The dashboard fits a curve through an issuer's bonds to visualise the term structure of spreads
+  and identify cheap/rich bonds (residuals above or below the curve).
+  You can choose between four methods via the ⚙ panel, or let <code>Auto</code> pick for you.
+</p>
+
+
+<!-- ── AUTO ─────────────────────────────────────────────────────── -->
+
+<h2><span class="method-num">0</span> Auto Mode</h2>
+<div class="method-card">
+  <p>
+    Auto selects the most appropriate method based on how many bonds the issuer has.
+    It is the default and the recommended setting for most use cases.
+  </p>
+
+  <table class="auto-table">
+    <thead>
+      <tr><th>Bonds</th><th>Method</th><th>Why</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3 – 4</td>
+        <td>Polynomial (deg 2)</td>
+        <td>Interpolates exactly with 3 points; smooth parabola with 4</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Nelson-Siegel</td>
+        <td>Enough data for the 4-parameter model; imposes an economic shape</td>
+      </tr>
+      <tr>
+        <td>6 +</td>
+        <td>Spline</td>
+        <td>Flexible, handles outliers gracefully, GCV tunes smoothing automatically</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── LINEAR ──────────────────────────────────────────────────── -->
+
+<h2><span class="method-num">1</span> Linear</h2>
+<div class="method-card">
+  <p>
+    <span class="tag green">simplest</span>
+    Ordinary least squares straight line. One slope, one intercept, no curvature.
+  </p>
+
+  <div class="formula-block">
+    $\text{OAS}(t) = a + b \cdot t$
+  </div>
+
+  <p>
+    The slope $b$ captures how many basis points of spread you gain per additional year of maturity.
+    Useful as a quick sanity check or when the issuer has very few bonds clustered in a narrow maturity range
+    where curvature is not observable.
+  </p>
+
+  <div class="when-box">
+    <strong>When to use</strong><br>
+    3 bonds all within 1–2 years of each other, or when you explicitly want a no-frills baseline.
+  </div>
+
+  <p>
+    <span style="display:inline-block;width:40px;border-top:2px solid var(--accent3);vertical-align:middle;margin-right:8px"></span>
+    Solid line on the chart. No tuneable parameters.
+  </p>
+</div>
+
+
+<!-- ── POLYNOMIAL ──────────────────────────────────────────────── -->
+
+<h2><span class="method-num">2</span> Polynomial</h2>
+<div class="method-card">
+  <p>
+    <span class="tag blue">flexible</span>
+    <span class="tag">degree 2 – 4</span>
+    Fits a polynomial of the chosen degree via ordinary least squares.
+  </p>
+
+  <div class="formula-block">
+    $\text{OAS}(t) = c_0 + c_1 \cdot t + c_2 \cdot t^2 \quad \text{(degree 2)}$
+  </div>
+
+  <p>
+    A degree-2 polynomial (parabola) is the sweet spot for small samples: with 3 bonds it interpolates
+    exactly through every point, and with 4–5 bonds it captures mild curvature without overfitting.
+    Higher degrees (3, 4) can capture S-shapes or humps but need more data to avoid wild extrapolation.
+  </p>
+
+  <table class="param-table">
+    <thead><tr><th>Parameter</th><th>Values</th><th>Guidance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Degree</td>
+        <td>2, 3, or 4</td>
+        <td>Degree 2 is almost always sufficient. Use 3+ only with 8+ bonds and visible inflection.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warn-box">
+    <strong>Watch out</strong><br>
+    Polynomials can blow up outside the data range. The curve may dive negative or spike
+    at maturities shorter or longer than your bonds. This is fine for interpolation (bonds that exist)
+    but meaningless for extrapolation.
+  </div>
+
+  <p>
+    <span style="display:inline-block;width:40px;border-top:2px dotted var(--accent3);vertical-align:middle;margin-right:8px"></span>
+    Dotted line on the chart.
+  </p>
+</div>
+
+
+<!-- ── NELSON-SIEGEL ───────────────────────────────────────────── -->
+
+<h2><span class="method-num">3</span> Nelson-Siegel</h2>
+<div class="method-card">
+  <p>
+    <span class="tag orange">parametric</span>
+    <span class="tag">4 parameters</span>
+    The classic term-structure model, widely used for government yield curves
+    and adapted here for credit spreads.
+  </p>
+
+  <div class="formula-block">
+    $\text{OAS}(t) = \beta_0 + \beta_1 \cdot \varphi(t, \tau) + \beta_2 \cdot \bigl[\varphi(t, \tau) - e^{-t/\tau}\bigr]$
+  </div>
+
+  <div class="formula-block" style="font-size:13px;color:var(--muted);margin-top:-12px;border-top:none">
+    $\text{where} \quad \varphi(t, \tau) = \dfrac{1 - e^{-t/\tau}}{t/\tau}$
+  </div>
+
+  <p>Each parameter has an economic interpretation:</p>
+
+  <table class="param-table">
+    <thead><tr><th>Parameter</th><th>Role</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>β₀</td>
+        <td>Level</td>
+        <td>Long-run spread the curve converges to at very long maturities</td>
+      </tr>
+      <tr>
+        <td>β₁</td>
+        <td>Slope</td>
+        <td>Short-end premium (or discount). Positive = inverted, negative = upward sloping</td>
+      </tr>
+      <tr>
+        <td>β₂</td>
+        <td>Curvature</td>
+        <td>Hump or trough in the belly. Controls the "bulge" around τ years</td>
+      </tr>
+      <tr>
+        <td>τ</td>
+        <td>Decay</td>
+        <td>Where the hump peaks (in years). Small τ = fast decay, hump near short end</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    By default, all four parameters are estimated jointly using Adam gradient descent with multiple restarts.
+    You can also <strong>fix τ</strong> to a specific value (1y, 2y, 5y, etc.), in which case β₀, β₁, β₂
+    are solved analytically via OLS — this is faster and more stable when the optimizer struggles
+    (common with few bonds in a narrow maturity range).
+  </p>
+
+  <table class="param-table">
+    <thead><tr><th>Setting</th><th>Values</th><th>Guidance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>τ decay</td>
+        <td>Est. (auto), 1y, 1.5y, 2y, 3y, 5y, 7y, 10y</td>
+        <td>"Est." lets the optimizer find τ. Fix it when the curve looks unstable or when bonds span a narrow range.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="when-box">
+    <strong>When to use</strong><br>
+    5+ bonds with reasonable maturity dispersion. The model's parametric structure prevents overfitting
+    and gives economically interpretable parameters that you can compare across issuers.
+    Preferred when you want to reason about curve shape (flat? inverted? humped?).
+  </div>
+
+  <div class="warn-box">
+    <strong>Watch out</strong><br>
+    NS imposes a specific functional form. If the issuer's bonds don't follow a level-slope-curvature
+    pattern (e.g. two distinct clusters from senior and subordinated debt mixed together),
+    the curve may distort to accommodate outliers. Consider filtering by bond type first,
+    or switching to Spline which is more flexible.
+  </div>
+
+  <p>
+    <span style="display:inline-block;width:40px;border-top:2px dashed var(--accent3);vertical-align:middle;margin-right:8px;"></span>
+    Dashed line on the chart. Legend shows β₀, β₁, β₂, τ, and RMSE.
+  </p>
+</div>
+
+
+<!-- ── SPLINE ──────────────────────────────────────────────────── -->
+
+<h2><span class="method-num">4</span> Spline</h2>
+<div class="method-card">
+  <p>
+    <span class="tag yellow">flexible</span>
+    <span class="tag">bloomberg-style</span>
+    Penalized cubic B-spline — the approach used by most dealer analytics platforms.
+    Fits a smooth curve through the data without imposing a global parametric shape.
+  </p>
+
+  <div class="formula-block">
+    $\hat{c} = \arg\min_c \;\bigl\| \mathbf{B} c - y \bigr\|^2 + \lambda \cdot c^\top \mathbf{P}\, c$
+  </div>
+
+  <p>
+    The first term is the goodness of fit (how closely the curve passes through your bonds).
+    The second term is the <strong>roughness penalty</strong> — it penalizes wiggly curves.
+    The balance between fit and smoothness is controlled by λ.
+  </p>
+
+  <p>The key components:</p>
+
+  <table class="param-table">
+    <thead><tr><th>Component</th><th>What it does</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>B</td>
+        <td>Basis matrix</td>
+        <td>Cubic B-spline basis functions evaluated at each bond's maturity. Each basis function is a "bump" centered around a knot.</td>
+      </tr>
+      <tr>
+        <td>c</td>
+        <td>Coefficients</td>
+        <td>Weights for each basis function. The fitted curve is a weighted sum of bumps.</td>
+      </tr>
+      <tr>
+        <td>P</td>
+        <td>Penalty matrix</td>
+        <td>Second-difference matrix. Penalizes rapid changes in successive coefficients, which corresponds to penalizing the curve's second derivative (curvature).</td>
+      </tr>
+      <tr>
+        <td>λ</td>
+        <td>Smoothing</td>
+        <td>Trade-off: λ = 0 → interpolation (passes through every point). λ → ∞ → straight line. Selected automatically by GCV or set manually.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>Interior knots</strong> are placed at quantiles of the bond maturities, so they adapt to where
+    the data actually sits (denser knots where there are more bonds). The number of knots controls
+    the curve's maximum flexibility — more knots = more degrees of freedom.
+  </p>
+
+  <table class="param-table">
+    <thead><tr><th>Setting</th><th>Values</th><th>Guidance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Smoothing λ</td>
+        <td>Auto (GCV), 0.001 – 1000</td>
+        <td>
+          <strong>Auto (GCV)</strong> uses Generalized Cross-Validation to pick the λ that minimizes
+          leave-one-out prediction error. This is the recommended default.<br>
+          Low λ (0.001–0.1): curve closely follows every point — good for clean data, bad with outliers.<br>
+          High λ (100–1000): heavily smoothed, almost linear — good when you suspect noise or outliers.
+        </td>
+      </tr>
+      <tr>
+        <td>Interior knots</td>
+        <td>Auto, 2 – 8</td>
+        <td>
+          <strong>Auto</strong> uses n_bonds / 3, capped at 8. More knots = more local flexibility.
+          With 6–8 bonds, 2–3 knots is plenty. With 15+ bonds, 4–6 knots lets the curve capture
+          local features. Rarely need more than 6.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="when-box">
+    <strong>When to use</strong><br>
+    6+ bonds, especially when the issuer has enough data to reveal local curve features
+    that NS would smooth away (e.g. a kink around the 5y point, or a flattening at the long end).
+    Also the best choice when there are outlier bonds — GCV will increase λ to smooth through
+    the consensus, and the outliers show up as large residuals (cheap/rich signal).
+  </div>
+
+  <div class="warn-box">
+    <strong>Watch out</strong><br>
+    With fewer than 6 bonds, the spline falls back to linear (not enough data for a meaningful fit).
+    Unlike NS, spline parameters (coefficients) have no direct economic interpretation —
+    you can't say "the long-run spread level is X" by reading a single number.
+    Extrapolation outside the data range is unreliable.
+  </div>
+
+  <p>
+    <span style="display:inline-block;width:40px;border-top:2px dashed var(--accent3);vertical-align:middle;margin-right:8px;border-spacing:8px;"></span>
+    Long-dash line on the chart. Legend shows knot count (k), λ, and RMSE.
+  </p>
+</div>
+
+
+<!-- ── RESIDUALS ───────────────────────────────────────────────── -->
+
+<h2>Residuals &amp; the Value Signal</h2>
+<div class="method-card">
+  <p>
+    Regardless of which method you use, the <strong>residual</strong> for each bond is:
+  </p>
+
+  <div class="formula-block">
+    $r_i = \text{OAS}_i - \widehat{\text{OAS}}(t_i)$
+  </div>
+
+  <p>
+    A positive residual means the bond trades <strong>wider than the curve</strong> (potentially <span style="color:var(--accent)">cheap</span>).
+    A negative residual means it trades <strong>tighter</strong> (potentially <span style="color:var(--neg)">rich</span>).
+  </p>
+
+  <p>
+    The shaded band around the curve represents ±1 RMSE.
+    Bonds outside this band are the strongest cheap/rich candidates.
+    In the tooltip, the residual is shown in basis points when you hover over a bond in FIT CURVE mode.
+  </p>
+
+  <div class="warn-box">
+    <strong>Important</strong><br>
+    A large residual doesn't always mean mispricing — it can reflect genuine differences
+    in bond features (callability, coupon, seniority, liquidity) that the curve doesn't capture.
+    Always check the bond's characteristics before acting on a residual signal.
+  </div>
+</div>
+
+
+<!-- ── RMSE ────────────────────────────────────────────────────── -->
+
+<h2>RMSE</h2>
+<div class="method-card">
+  <p>
+    The Root Mean Square Error measures overall fit quality:
+  </p>
+
+  <div class="formula-block">
+    $\text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^{n} r_i^2}$
+  </div>
+
+  <p>
+    Lower RMSE = tighter fit. Typical values for EUR HY issuers:
+  </p>
+
+  <table class="auto-table">
+    <thead><tr><th>RMSE (bps)</th><th>Interpretation</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>0 – 10</td><td>Excellent</td><td>Bonds sit tightly on the curve</td></tr>
+      <tr><td>10 – 30</td><td>Good</td><td>Normal dispersion for HY</td></tr>
+      <tr><td>30 – 80</td><td>Moderate</td><td>Some outlier bonds or mixed seniority</td></tr>
+      <tr><td>80+</td><td>Poor</td><td>Consider filtering by type or changing method</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ── QUICK REF ───────────────────────────────────────────────── -->
+
+<h2>Quick Reference</h2>
+<div class="method-card">
+  <table class="auto-table">
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Min bonds</th>
+        <th>Parameters</th>
+        <th>Best for</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Linear</td>
+        <td>3</td>
+        <td>None</td>
+        <td>Quick check, very few bonds</td>
+      </tr>
+      <tr>
+        <td>Polynomial</td>
+        <td>3</td>
+        <td>Degree (2–4)</td>
+        <td>3–5 bonds, mild curvature</td>
+      </tr>
+      <tr>
+        <td>Nelson-Siegel</td>
+        <td>3</td>
+        <td>τ (est. or fixed)</td>
+        <td>5–10 bonds, economic interpretation</td>
+      </tr>
+      <tr>
+        <td>Spline</td>
+        <td>6</td>
+        <td>λ, knots</td>
+        <td>6+ bonds, outliers, local features</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+</div>
+</body>
+</html>

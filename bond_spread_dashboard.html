@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spread Curve Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0a0c0f;
+    --surface:   #111418;
+    --border:    #1e2329;
+    --border2:   #2a313b;
+    --text:      #c8d0dc;
+    --muted:     #4e5a6a;
+    --accent:    #00d4aa;
+    --accent2:   #ff6b35;
+    --accent3:   #4d9fff;
+    --warn:      #f0b429;
+    --neg:       #ff4757;
+    --pos:       #00d4aa;
+    --panel:     #13171d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+  }
+  .logo span { color: var(--muted); font-weight: 300; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 48px);
+  }
+
+  /* ── sidebar ── */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* search */
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 8px 10px 8px 32px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-icon {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  /* issuer list */
+  .issuer-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .issuer-list::-webkit-scrollbar { width: 3px; }
+  .issuer-list::-webkit-scrollbar-track { background: transparent; }
+  .issuer-list::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .issuer-item {
+    padding: 7px 16px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.1s;
+    border-left: 2px solid transparent;
+  }
+  .issuer-item:hover { background: rgba(255,255,255,0.03); }
+  .issuer-item.active {
+    background: rgba(0,212,170,0.06);
+    border-left-color: var(--accent);
+    color: var(--accent);
+  }
+  .issuer-name { font-weight: 500; }
+  .issuer-count {
+    font-size: 9px;
+    color: var(--muted);
+    background: var(--border);
+    padding: 1px 5px;
+  }
+
+  /* bond type pills */
+  .bond-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pill {
+    padding: 4px 10px;
+    font-size: 10px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .pill:hover { border-color: var(--accent); color: var(--text); }
+  .pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  /* date selector */
+  .date-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .date-list::-webkit-scrollbar { width: 3px; }
+  .date-list::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .date-item {
+    padding: 5px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .date-item:hover { border-color: var(--border2); background: rgba(255,255,255,0.02); }
+  .date-item.active {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: rgba(77,159,255,0.05);
+  }
+  .date-n-bonds { font-size: 9px; color: var(--muted); }
+
+  /* ── main content ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* stat bar */
+  .stat-bar {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    height: 64px;
+    overflow: hidden;
+  }
+
+  .stat-item {
+    flex: 1;
+    padding: 10px 20px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .stat-item:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-value.pos { color: var(--pos); }
+  .stat-value.neg { color: var(--neg); }
+  .stat-value.accent { color: var(--accent3); }
+  .stat-value.warn { color: var(--warn); }
+
+  /* chart area */
+  .chart-area {
+    flex: 1;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .chart-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .chart-subtitle {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  .chart-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .toggle-btn {
+    padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover, .toggle-btn.active {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+
+  .chart-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+  }
+
+  /* bond table */
+  .bond-table-wrap {
+    height: 160px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+  }
+  .bond-table-wrap::-webkit-scrollbar { width: 3px; }
+  .bond-table-wrap::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+  thead th {
+    padding: 6px 12px;
+    text-align: left;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    font-weight: 400;
+    text-transform: uppercase;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr.highlighted { background: rgba(0,212,170,0.05); }
+  tbody td {
+    padding: 5px 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .td-isin { color: var(--muted); font-size: 9px; }
+  .td-oas-pos { color: var(--pos); font-weight: 500; }
+  .td-oas-neg { color: var(--neg); font-weight: 500; }
+  .td-sub { color: var(--warn); font-size: 9px; }
+
+  /* empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 32px; opacity: 0.4; }
+  .empty-text { font-size: 11px; letter-spacing: 0.08em; }
+
+  /* axis selectors */
+  .axis-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .axis-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    min-width: 14px;
+  }
+  .axis-select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+    min-width: 160px;
+    transition: border-color 0.2s;
+  }
+  .axis-select:focus, .axis-select:hover { border-color: var(--accent3); }
+  .axis-select option { background: var(--surface); }
+
+  /* column picker */
+  .col-picker-btn {
+    padding: 3px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .col-picker-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .col-picker-panel {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 12px;
+    z-index: 200;
+    min-width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .col-picker-panel.open { display: block; }
+  .col-picker-panel::-webkit-scrollbar { width: 3px; }
+  .col-picker-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .col-picker-header {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .col-picker-reset {
+    font-size: 9px;
+    color: var(--accent3);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.08em;
+  }
+  .col-picker-reset:hover { text-decoration: underline; }
+
+  .col-picker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+  }
+  .col-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text);
+    padding: 2px 0;
+    user-select: none;
+  }
+  .col-check input[type=checkbox] {
+    accent-color: var(--accent3);
+    width: 11px;
+    height: 11px;
+    cursor: pointer;
+  }
+  .col-check.locked { color: var(--muted); cursor: default; }
+
+  /* ── multi-selection ── */
+  .selection-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    max-height: 160px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sel-tag {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    font-size: 10px;
+    border-left: 3px solid var(--tag-color, var(--accent));
+    background: rgba(255,255,255,0.03);
+    gap: 6px;
+  }
+  .sel-tag-label { flex: 1; color: var(--text); white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+  .sel-tag-remove {
+    cursor: pointer; color: var(--muted); font-size: 13px;
+    line-height: 1; padding: 0 2px; flex-shrink: 0;
+  }
+  .sel-tag-remove:hover { color: var(--neg); }
+
+  .add-btn {
+    width: 100%;
+    padding: 7px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    border: 1px dashed var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+  .add-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .add-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .clear-btn {
+    font-size: 9px; color: var(--muted); cursor: pointer;
+    background: none; border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.08em; padding: 0;
+  }
+  .clear-btn:hover { color: var(--neg); }
+
+  /* tooltip override */
+  .chartjs-tooltip {
+    background: var(--surface) !important;
+    border: 1px solid var(--border2) !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px !important;
+  }
+
+  /* ── fit controls panel ── */
+  .fit-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 12px 14px;
+    z-index: 200;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .fit-panel.open { display: block; }
+
+  .fit-panel-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .fit-methods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .fit-method-btn {
+    padding: 3px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .fit-method-btn:hover { border-color: var(--accent3); color: var(--text); }
+  .fit-method-btn.active {
+    background: var(--accent3);
+    border-color: var(--accent3);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  .fit-params { display: flex; flex-direction: column; gap: 6px; }
+  .fit-param-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .fit-param-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .fit-param-select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+    min-width: 90px;
+  }
+  .fit-param-select:focus { border-color: var(--accent3); }
+  .fit-param-select option { background: var(--surface); }
+
+  .fit-desc {
+    font-size: 9px;
+    color: var(--muted);
+    font-style: italic;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+  }
+  .help-btn {
+  padding: 4px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: all 0.15s;
+  text-decoration: none;
+  }
+  .help-btn:hover {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+  <span>SPREAD ANALYTICS</span>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <a class="help-btn" href="fitting_guide.html" target="_blank" title="Curve fitting reference">? GUIDE</a>
+<span id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <div class="sidebar">
+
+    <!-- Active selections -->
+    <div style="padding:10px 14px 0; flex-shrink:0; border-bottom:1px solid var(--border)">
+      <div class="section-label" style="margin-bottom:6px">
+        <span>Active Series</span>
+        <button class="clear-btn" onclick="clearAllSelections()">clear all</button>
+      </div>
+      <div id="selectionTags" style="display:flex;flex-direction:column;gap:4px;
+           max-height:130px;overflow-y:auto;margin-bottom:8px"></div>
+    </div>
+
+    <!-- Dynamic picker steps — rendered by JS from config.json groups -->
+    <div id="pickerSteps" style="display:contents"></div>
+
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- stat bar -->
+    <div class="stat-bar">
+      <div class="stat-item">
+        <div class="stat-label">Issuer</div>
+        <div class="stat-value accent" id="statIssuer">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Bonds</div>
+        <div class="stat-value" id="statBonds">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Avg OAS (bps)</div>
+        <div class="stat-value warn" id="statAvgOas">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Min OAS</div>
+        <div class="stat-value pos" id="statMinOas">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Max OAS</div>
+        <div class="stat-value neg" id="statMaxOas">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Avg Maturity (yr)</div>
+        <div class="stat-value" id="statAvgMat">—</div>
+      </div>
+    </div>
+
+    <!-- chart area -->
+    <div class="chart-area">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title" id="chartTitle">SPREAD TO MATURITY</div>
+          <div class="chart-subtitle" id="chartSubtitle">Select issuer to begin</div>
+        </div>
+        <div class="chart-controls" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div style="display:flex;gap:8px;position:relative">
+            <button class="toggle-btn active" id="btnScatter" onclick="setChartType('scatter')">SCATTER</button>
+            <button class="toggle-btn" id="btnLine" onclick="setChartType('line')">FIT CURVE</button>
+            <button class="toggle-btn" id="btnFitSettings" onclick="toggleFitPanel()" title="Fitting settings">⚙</button>
+            <div class="fit-panel" id="fitPanel"></div>
+          </div>
+          <div style="display:flex;gap:12px">
+            <div class="axis-row">
+              <span class="axis-label">X</span>
+              <select class="axis-select" id="xAxisSelect" onchange="setAxis('x', this.value)">
+                <option value="ttm">TTM (years)</option>
+              </select>
+            </div>
+            <div class="axis-row">
+              <span class="axis-label">Y</span>
+              <select class="axis-select" id="yAxisSelect" onchange="setAxis('y', this.value)">
+                <option value="oas">OAS vs Govt (bps)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="spreadChart"></canvas>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">◈</div>
+          <div class="empty-text">SELECT AN ISSUER TO VISUALISE SPREAD CURVE</div>
+        </div>
+      </div>
+
+      <div style="position:relative">
+        <div style="display:flex;justify-content:flex-end;padding:4px 0;position:relative">
+          <button class="col-picker-btn" onclick="toggleColPicker()">⊞ COLUMNS</button>
+          <div class="col-picker-panel" id="colPickerPanel">
+            <div class="col-picker-header">
+              <span>Visible Columns</span>
+              <button class="col-picker-reset" onclick="resetCols()">Reset</button>
+            </div>
+            <div class="col-picker-grid" id="colPickerGrid"></div>
+          </div>
+        </div>
+        <div class="bond-table-wrap">
+          <table>
+            <thead><tr id="tableHead"></tr></thead>
+            <tbody id="bondTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="curve_fit.js"></script>
+<script>
+// ── DATA — loaded from data.json (same folder as this HTML file) ──────────────
+// Run the Python script to generate data.json, then serve with:
+//   python -m http.server 8000
+// and open http://localhost:8000/bond_spread_dashboard.html
+
+let allData = [];   // populated after fetch completes
+
+// ── CONFIG — loaded from config.json ─────────────────────────────────────────
+let CFG = null;   // populated in init()
+
+// ── PARSING ────────────────────────────────────────────────────────────────────
+
+function getTTM(maturity, date) {
+  return +((new Date(maturity) - new Date(date)) / (365.25 * 86400000)).toFixed(2);
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+// picker is a plain object keyed by each group's "key", e.g. { ticker: null, type: "All", date: null }
+// selections is an array of objects with same keys plus { color }
+let state = {
+  selections:      [],
+  picker:          {},   // populated after config loads
+  chartType:       "scatter",
+  highlightedISIN: null,
+  xField:          "ttm",
+  yField:          "oas",
+  fitCfg:          { method: "auto", degree: 2, tauFixed: null, lambda: "auto", knots: "auto" },
+};
+
+// ── COLOUR PALETTE ────────────────────────────────────────────────────────────
+const PALETTE = [
+  "#00d4aa","#4d9fff","#f0b429","#ff6b35","#c084fc",
+  "#fb7185","#34d399","#f472b6","#38bdf8","#a3e635",
+  "#e879f9","#fb923c",
+];
+function nextColor() {
+  const used = new Set(state.selections.map(s => s.color));
+  const free = PALETTE.find(c => !used.has(c));
+  return free ?? PALETTE[state.selections.length % PALETTE.length];
+}
+
+// ── AXIS HELPERS ──────────────────────────────────────────────────────────────
+// FIELD_LABELS is built from config.axes; fallback to key name
+let FIELD_LABELS = {};
+
+function getFieldLabel(key) {
+  return FIELD_LABELS[key] || key;
+}
+
+function updateChartTitle() {
+  const xl = getFieldLabel(state.xField);
+  const yl = getFieldLabel(state.yField);
+  document.getElementById("chartTitle").textContent =
+    yl.toUpperCase() + " vs " + xl.toUpperCase();
+}
+
+function getBondValue(b, field) {
+  if (field === "ttm") return b.ttm;
+  return b[field] ?? null;
+}
+
+function populateAxisSelects() {
+  const xSel = document.getElementById("xAxisSelect");
+  const ySel = document.getElementById("yAxisSelect");
+  xSel.innerHTML = "";
+  ySel.innerHTML = "";
+  CFG.axes.forEach(f => {
+    xSel.innerHTML += `<option value="${f.key}" ${f.key === state.xField ? "selected" : ""}>${f.label}</option>`;
+    ySel.innerHTML += `<option value="${f.key}" ${f.key === state.yField ? "selected" : ""}>${f.label}</option>`;
+  });
+}
+
+function setAxis(axis, field) {
+  if (axis === "x") state.xField = field;
+  else              state.yField = field;
+  updateChartTitle();
+  renderChart();
+}
+
+// ── DERIVED — all config-driven ───────────────────────────────────────────────
+
+// Return unique values for group[i], filtered by all prior group selections.
+// For the first group (i=0) this is the full distinct list.
+function getGroupValues(groupIdx) {
+  const groups = CFG.groups;
+  let bonds = allData;
+
+  // filter by all confirmed prior groups
+  for (let j = 0; j < groupIdx; j++) {
+    const g   = groups[j];
+    const val = state.picker[g.key];
+    if (val == null) return [];               // upstream not selected yet
+    if (g.all_option && val === g.default) continue;  // "All" = no filter
+    bonds = bonds.filter(b => b[g.key] === val);
+  }
+
+  const g   = groups[groupIdx];
+  const set = new Set(bonds.map(b => b[g.key]));
+  let vals  = [...set];
+
+  if (g.sort === "desc") vals = vals.sort().reverse();
+  else if (g.sort === "asc") vals = vals.sort();
+  else vals = vals.sort((a, b) => typeof a === "string" ? a.localeCompare(b) : a - b);
+
+  if (g.all_option) vals = [g.default, ...vals.filter(v => v !== g.default)];
+  return vals;
+}
+
+// Count bonds matching a specific value at group[i], given prior picker state
+function countBondsForValue(groupIdx, value) {
+  const groups = CFG.groups;
+  let bonds = allData;
+  for (let j = 0; j <= groupIdx; j++) {
+    const g   = groups[j];
+    const val = j === groupIdx ? value : state.picker[g.key];
+    if (g.all_option && val === g.default) continue;
+    if (val != null) bonds = bonds.filter(b => b[g.key] === val);
+  }
+  // for the first (searchable) group return unique ISIN count, not row count
+  if (groupIdx === 0) return new Set(bonds.map(b => b.isin)).size;
+  return bonds.length;
+}
+
+function getBondsForSelection(sel) {
+  let bonds = allData;
+  for (const g of CFG.groups) {
+    const val = sel[g.key];
+    if (g.all_option && val === g.default) continue;
+    if (val != null) bonds = bonds.filter(b => b[g.key] === val);
+  }
+  return bonds.map(b => ({ ...b, ttm: getTTM(b.maturity, b.date) }));
+}
+
+function getAllActiveBonds() {
+  return state.selections.flatMap((sel, i) =>
+    getBondsForSelection(sel).map(b => ({ ...b, _selIdx: i, _color: sel.color }))
+  );
+}
+
+function getPreviewBonds() {
+  // preview requires all group keys to be set (same condition as the Add button)
+  const ready = CFG.groups.every(g => state.picker[g.key] != null);
+  if (!ready) return [];
+  const alreadyAdded = state.selections.some(s =>
+    CFG.groups.every(g => s[g.key] === state.picker[g.key])
+  );
+  if (alreadyAdded) return [];
+  return getBondsForSelection(state.picker);
+}
+
+function getAllVisibleBonds() {
+  return [...getAllActiveBonds(), ...getPreviewBonds()];
+}
+
+
+// ── CHART ─────────────────────────────────────────────────────────────────────
+let chart = null;
+
+// NS fitting and chart utilities live in nelson_siegel.js → window.NS
+// NS.fit(points), NS.predict(t,model), NS.gridPoints(...),
+// NS.buildDatasets({...}), NS.buildPreviewDatasets({...})
+// Uses penalized spline (≥6 bonds) or Nelson-Siegel (<6 bonds)
+
+// ── CHART ──────────────────────────────────────────────────────────────────────
+function renderChart() {
+  const canvas = document.getElementById('spreadChart');
+  const empty  = document.getElementById('emptyState');
+
+  // preview is ready when all group picker values are set
+  const previewReady = CFG && CFG.groups.every(g => state.picker[g.key] != null);
+  const pvBonds      = previewReady ? getBondsForSelection(state.picker) : [];
+
+  if (!state.selections.length && !pvBonds.length) {
+    canvas.style.display = 'none';
+    empty.style.display  = 'flex';
+    return;
+  }
+  canvas.style.display = 'block';
+  empty.style.display  = 'none';
+
+  const xF = state.xField;
+  const yF = state.yField;
+  const xl = getFieldLabel(xF);
+  const yl = getFieldLabel(yF);
+  const mode = state.chartType === 'line' && (xF === 'ttm' || xF === 'duration')
+    ? 'ns' : state.chartType === 'line' ? 'line' : 'scatter';
+
+  function toPoint(b) {
+    const x = getBondValue(b, xF);
+    const y = getBondValue(b, yF);
+    if (x == null || y == null || !isFinite(x) || !isFinite(y)) return null;
+    return { x, y, isin: b.isin, coupon: b.coupon };
+  }
+
+  const datasets = [];
+
+  // ── confirmed selections ──────────────────────────────────────────────────
+  state.selections.forEach((sel, si) => {
+    const points = getBondsForSelection(sel).map(toPoint).filter(Boolean);
+    if (!points.length) return;
+    const label = CFG.groups.map(g => sel[g.key]).join(" · ");
+    datasets.push(...NS.buildDatasets({
+      points, mode,
+      color:           sel.color,
+      label,
+      highlightedISIN: state.highlightedISIN,
+      seriesIndex:     si,
+      fitCfg:          state.fitCfg,
+    }));
+  });
+
+  // ── preview ───────────────────────────────────────────────────────────────
+  const alreadyAdded = state.selections.some(s =>
+    CFG.groups.every(g => s[g.key] === state.picker[g.key])
+  );
+  if (pvBonds.length && !alreadyAdded) {
+    const pvPoints = pvBonds.map(toPoint).filter(Boolean);
+    if (pvPoints.length) {
+      const pvLabel = `[preview] ${CFG.groups.map(g => state.picker[g.key]).join(" · ")}`;
+      datasets.push(...NS.buildPreviewDatasets({ points: pvPoints, mode, label: pvLabel, fitCfg: state.fitCfg }));
+    }
+  }
+
+  if (chart) chart.destroy();
+  chart = new Chart(canvas, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      interaction: { mode: 'nearest', intersect: true },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#4e5a6a',
+            font:  { family: 'IBM Plex Mono', size: 10 },
+            boxWidth: 8, padding: 16,
+            filter: item => !item.text.startsWith('_'),
+          }
+        },
+        tooltip: {
+          backgroundColor: '#111418',
+          borderColor: '#2a313b', borderWidth: 1,
+          titleColor: '#c8d0dc', bodyColor: '#4e5a6a',
+          titleFont: { family: 'IBM Plex Mono', size: 11, weight: '500' },
+          bodyFont:  { family: 'IBM Plex Mono', size: 10 },
+          padding: 10,
+          filter: item => !item.dataset.label.startsWith('_'),
+          callbacks: {
+            title: () => '',
+            label: item => {
+              const r = item.raw;
+              if (!r.isin) return null;
+              return [
+                `ISIN : ${r.isin}`,
+                `${xl.padEnd(4)} : ${r.x.toFixed(2)}`,
+                `${yl.padEnd(4)} : ${r.y.toFixed(0)}`,
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: xl.toUpperCase(), color: '#4e5a6a',
+                   font: { family: 'IBM Plex Mono', size: 9 }, padding: { top: 8 } },
+          grid:  { color: 'rgba(30,35,41,0.8)', lineWidth: 1 },
+          ticks: { color: '#4e5a6a', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10 },
+        },
+        y: {
+          title: { display: true, text: yl.toUpperCase(), color: '#4e5a6a',
+                   font: { family: 'IBM Plex Mono', size: 9 }, padding: { bottom: 8 } },
+          grid:  { color: 'rgba(30,35,41,0.8)', lineWidth: 1 },
+          ticks: { color: '#4e5a6a', font: { family: 'IBM Plex Mono', size: 9 } },
+        }
+      }
+    }
+  });
+}
+
+
+// ── SIDEBAR RENDER — fully config-driven ─────────────────────────────────────
+
+function buildSidebar() {
+  const container = document.getElementById("pickerSteps");
+  container.innerHTML = CFG.groups.map((g, i) => {
+    const isLast    = !!g.is_last;
+    const flex      = isLast ? "flex:1; overflow:hidden; display:flex; flex-direction:column;" : "flex:0 0 auto;";
+    const stepLabel = `${i + 1} · ${g.label}`;
+
+    if (i === 0 && g.searchable) {
+      // first group with search box — gets the scrollable issuer-list pattern
+      return `
+        <div class="sidebar-section" style="${flex}">
+          <div class="section-label">${stepLabel}</div>
+          <div class="search-wrap" style="margin-bottom:10px">
+            <span class="search-icon">⌕</span>
+            <input type="text" id="groupSearch_${g.key}" placeholder="Search ${g.label.toLowerCase()}…"
+                   oninput="renderGroupStep(0, this.value)">
+          </div>
+        </div>
+        <div class="issuer-list" id="groupList_${g.key}" style="max-height:160px"></div>`;
+    }
+
+    if (isLast) {
+      return `
+        <div class="sidebar-section" style="${flex}">
+          <div class="section-label">${stepLabel}</div>
+          <div class="date-list" id="groupList_${g.key}" style="flex:1;overflow-y:auto;max-height:none">
+            <div style="font-size:10px;color:var(--muted);padding:4px">Select ${CFG.groups[0].label.toLowerCase()} first</div>
+          </div>
+          <button class="add-btn" id="addBtn" disabled onclick="addSelection()">+ ADD TO CHART</button>
+        </div>`;
+    }
+
+    // middle group — pills
+    return `
+      <div class="sidebar-section" style="${flex}">
+        <div class="section-label">${stepLabel}</div>
+        <div class="bond-types" id="groupList_${g.key}">
+          <span style="font-size:10px;color:var(--muted)">Select ${CFG.groups[i - 1].label.toLowerCase()} first</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  // wire up search listener for any searchable group
+  CFG.groups.forEach((g, i) => {
+    if (g.searchable) {
+      const el = document.getElementById(`groupSearch_${g.key}`);
+      if (el) el.addEventListener("input", e => renderGroupStep(i, e.target.value));
+    }
+  });
+}
+
+// Render a single picker step. filter only used for searchable step 0.
+function renderGroupStep(groupIdx, filter = "") {
+  const g      = CFG.groups[groupIdx];
+  const el     = document.getElementById(`groupList_${g.key}`);
+  if (!el) return;
+
+  const values = getGroupValues(groupIdx);
+  const isLast = !!g.is_last;
+
+  if (!values.length) {
+    const prev = groupIdx > 0 ? CFG.groups[groupIdx - 1].label.toLowerCase() : "";
+    el.innerHTML = `<div style="font-size:10px;color:var(--muted);padding:4px">Select ${prev} first</div>`;
+    return;
+  }
+
+  if (groupIdx === 0 && g.searchable) {
+    // issuer-list style
+    const filtered = values.filter(v =>
+      String(v).toLowerCase().includes(filter.toLowerCase())
+    );
+    el.innerHTML = filtered.map(v => {
+      const count = countBondsForValue(groupIdx, v);
+      return `
+        <div class="issuer-item ${state.picker[g.key] === v ? "active" : ""}"
+             onclick="pickGroupValue(${groupIdx}, '${v}')">
+          <span class="issuer-name">${v}</span>
+          <span class="issuer-count">${count}</span>
+        </div>`;
+    }).join("");
+    return;
+  }
+
+  if (isLast) {
+    // date-list style
+    el.innerHTML = values.map(v => {
+      const n = g.show_count ? countBondsForValue(groupIdx, v) : null;
+      return `
+        <div class="date-item ${state.picker[g.key] === v ? "active" : ""}"
+             onclick="pickGroupValue(${groupIdx}, '${v}')">
+          <span>${v}</span>
+          ${n != null ? `<span class="date-n-bonds">${n}b</span>` : ""}
+        </div>`;
+    }).join("");
+    return;
+  }
+
+  // pills style (middle groups)
+  el.innerHTML = values.map(v => `
+    <span class="pill ${state.picker[g.key] === v ? "active" : ""}"
+          onclick="pickGroupValue(${groupIdx}, '${v}')">${String(v).toUpperCase()}</span>
+  `).join("");
+}
+
+function renderAllGroupSteps() {
+  CFG.groups.forEach((_, i) => renderGroupStep(i));
+}
+
+function renderSelectionTags() {
+  const container = document.getElementById("selectionTags");
+  if (!state.selections.length) {
+    container.innerHTML =
+      '<div style="font-size:9px;color:var(--muted);padding:2px 0">No series added yet</div>';
+    return;
+  }
+  container.innerHTML = state.selections.map((sel, i) => {
+    const label = CFG.groups.map(g => sel[g.key]).join(" · ");
+    return `
+      <div class="sel-tag" style="--tag-color:${sel.color}">
+        <span class="sel-tag-label" title="${label}">${label}</span>
+        <span class="sel-tag-remove" onclick="removeSelection(${i})">×</span>
+      </div>`;
+  }).join("");
+}
+
+function renderStats() {
+  const all = getAllVisibleBonds();
+  if (!all.length) {
+    ['statIssuer','statBonds','statAvgOas','statMinOas','statMaxOas','statAvgMat']
+      .forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  const oas  = all.map(b => b.oas).filter(v => v != null);
+  const ttms = all.map(b => b.ttm).filter(v => v != null);
+  const issuers = [...new Set(all.map(b => b.ticker))];
+  document.getElementById('statIssuer').textContent =
+    issuers.length === 1 ? issuers[0] : `${issuers.length} issuers`;
+  document.getElementById('statBonds').textContent  = new Set(all.map(b => b.isin)).size;
+  document.getElementById('statAvgOas').textContent =
+    Math.round(oas.reduce((a,b)=>a+b,0)/oas.length);
+  document.getElementById('statMinOas').textContent = Math.min(...oas);
+  document.getElementById('statMaxOas').textContent = Math.max(...oas);
+  document.getElementById('statAvgMat').textContent =
+    (ttms.reduce((a,b)=>a+b,0)/ttms.length).toFixed(1);
+}
+
+// ── COLUMN SYSTEM — fully dynamic, built from JSON keys at load time ──────────
+//
+// No columns are hardcoded. At init, every key found in the first JSON record
+// is turned into a column definition with an auto-generated renderer.
+//
+// Only "isin" is locked (always visible). Every other column — including any
+// string fields like "desc", "name", etc. — is optional and toggleable via
+// the column picker. The default visible set is the first 8 optional columns.
+
+const ALWAYS_LOCKED = new Set(["isin"]);      // never removable
+let SKIP_IN_TABLE = new Set(["ticker", "type", "date"]);  // extended at init with all group keys
+
+// built at load time
+let ALL_COLS      = [];   // [{key, label, locked, render}, ...]
+let visibleCols   = new Set();
+let defaultVisible = new Set();
+// First string key in the JSON that can serve as a human-readable bond label.
+// Detected once in buildColSystem; falls back to "isin" if nothing found.
+let labelKey = "isin";
+
+function keyToLabel(key) {
+  // use FIELD_LABELS if available, otherwise prettify the key
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+  return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function makeRenderer(key, sample) {
+  const v = sample[key];
+
+  // special renders for known dashboard keys
+  if (key === "isin")
+    return b => `<td class="td-isin">${b[key] ?? "—"}</td>`;
+  if (key === "oas")
+    return b => `<td class="${(b[key] ?? 0) > 600 ? 'td-oas-neg' : 'td-oas-pos'}">${b[key] ?? "—"}</td>`;
+  if (key === "ttm")
+    return b => `<td>${b.ttm != null ? b.ttm.toFixed(2) : "—"}</td>`;
+  if (key === "maturity" || key === "date")
+    return b => `<td style="color:var(--muted)">${b[key] ?? "—"}</td>`;
+
+  // auto-render by value type
+  if (typeof v === "number") {
+    // detect percentage-like fields (weight, coupon, yield, rate)
+    const isPct = /coupon|yield|rate|margin|return|pct|percent/.test(key);
+    const dp    = Math.abs(v) < 10 ? 3 : 1;
+    return b => {
+      const val = b[key];
+      if (val == null || !isFinite(val)) return '<td style="color:var(--muted)">—</td>';
+      return `<td>${val.toFixed(dp)}${isPct ? "%" : ""}</td>`;
+    };
+  }
+  if (typeof v === "string") {
+    const isLong = v.length > 15;
+    return b => {
+      const val = b[key];
+      if (!val) return '<td style="color:var(--muted)">—</td>';
+      return isLong
+        ? `<td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${val}</td>`
+        : `<td style="color:var(--muted);font-size:9px">${val}</td>`;
+    };
+  }
+  // fallback
+  return b => `<td style="color:var(--muted)">${b[key] ?? "—"}</td>`;
+}
+
+function buildColSystem(sample) {
+  if (!sample) return;
+
+  ALL_COLS = [];
+
+  // ttm is computed at runtime — inject it ahead of the raw JSON keys
+  const allKeys = ["ttm", ...Object.keys(sample)];
+
+  // Detect the first string key that looks like a human-readable bond label.
+  // Exclude group keys (ticker, type, date) and isin — these are structural, not descriptive.
+  // Prefer keys whose name suggests a description, then fall back to isin.
+  const groupKeys = new Set(CFG.groups.map(g => g.key));
+  const strKeys = Object.keys(sample).filter(k =>
+    typeof sample[k] === "string" &&
+    !SKIP_IN_TABLE.has(k) &&
+    !groupKeys.has(k) &&
+    k !== "isin"
+  );
+  labelKey = strKeys.find(k => /desc|name|label|title|description/i.test(k))
+    || strKeys[0]
+    || "isin";
+
+  for (const key of allKeys) {
+    if (SKIP_IN_TABLE.has(key)) continue;
+
+    const locked = ALWAYS_LOCKED.has(key);
+    const label  = keyToLabel(key);
+    const render = makeRenderer(key, key === "ttm" ? { [key]: 0 } : sample);
+
+    ALL_COLS.push({ key, label, locked, render });
+  }
+
+  // default visible: locked cols + first 7 optional cols
+  const optional = ALL_COLS.filter(c => !c.locked);
+  defaultVisible = new Set([
+    ...ALL_COLS.filter(c => c.locked).map(c => c.key),
+    ...optional.slice(0, 7).map(c => c.key),
+  ]);
+  visibleCols = new Set(defaultVisible);
+}
+
+function activeCols() {
+  return ALL_COLS.filter(c => c.locked || visibleCols.has(c.key));
+}
+
+// ── COLUMN PICKER ─────────────────────────────────────────────────────────────
+function populateColPicker() {
+  const grid = document.getElementById("colPickerGrid");
+  if (!grid) return;
+  const optional = ALL_COLS.filter(c => !c.locked);
+  grid.innerHTML = optional.map(c => `
+    <label class="col-check">
+      <input type="checkbox"
+             ${visibleCols.has(c.key) ? "checked" : ""}
+             onchange="toggleCol('${c.key}', this.checked)">
+      ${c.label}
+    </label>
+  `).join("");
+}
+
+function toggleColPicker() {
+  document.getElementById("colPickerPanel").classList.toggle("open");
+}
+
+document.addEventListener("click", e => {
+  const panel = document.getElementById("colPickerPanel");
+  if (!panel) return;
+  if (!panel.contains(e.target) && !e.target.closest(".col-picker-btn"))
+    panel.classList.remove("open");
+});
+
+function toggleCol(key, checked) {
+  if (checked) visibleCols.add(key);
+  else         visibleCols.delete(key);
+  renderTable(getAllVisibleBonds());
+}
+
+function resetCols() {
+  visibleCols = new Set(defaultVisible);
+  populateColPicker();
+  renderTable(getAllVisibleBonds());
+}
+
+// ── TABLE RENDER ──────────────────────────────────────────────────────────────
+function renderTable(bonds) {
+  const cols   = activeCols();
+  const sorted = [...bonds].sort((a, b) => (a.ttm ?? 0) - (b.ttm ?? 0));
+
+  document.getElementById("tableHead").innerHTML =
+    cols.map(c => `<th>${c.label.toUpperCase()}</th>`).join("");
+
+  document.getElementById("bondTable").innerHTML = sorted.map(b => `
+    <tr onclick="highlightBond('${b.isin}')"
+        class="${b.isin === state.highlightedISIN ? "highlighted" : ""}">
+      ${cols.map(c => c.render(b)).join("")}
+    </tr>
+  `).join("");
+}
+
+function renderSubtitle() {
+  const confirmed = getAllActiveBonds();
+  const preview   = getPreviewBonds();
+  if (!confirmed.length && !preview.length) {
+    document.getElementById('chartSubtitle').textContent =
+      'Select an issuer to preview · click Add to keep';
+    return;
+  }
+  const selLabel = s => CFG.groups.map(g => s[g.key]).join("·");
+  const parts = [];
+  if (state.selections.length)
+    parts.push(...state.selections.map(selLabel));
+  if (preview.length)
+    parts.push(`[preview] ${selLabel(state.picker)}`);
+  document.getElementById('chartSubtitle').textContent =
+    `${parts.join('  /  ')}  ·  ${confirmed.length + preview.length} bonds`;
+}
+
+function fullRender() {
+  renderStats();
+  renderChart();
+  renderTable(getAllVisibleBonds());
+  renderSubtitle();
+}
+
+// ── PICKER ACTIONS — config-driven ───────────────────────────────────────────
+
+function pickGroupValue(groupIdx, value) {
+  const g = CFG.groups[groupIdx];
+  state.picker[g.key] = value;
+
+  // reset all downstream groups to their defaults
+  for (let j = groupIdx + 1; j < CFG.groups.length; j++) {
+    const dg = CFG.groups[j];
+    state.picker[dg.key] = dg.default ?? null;
+  }
+
+  // auto-select first available value for each downstream group
+  for (let j = groupIdx + 1; j < CFG.groups.length; j++) {
+    const vals = getGroupValues(j);
+    if (vals.length) {
+      state.picker[CFG.groups[j].key] = vals[0];
+    } else {
+      break;  // can't go further if no values available
+    }
+  }
+
+  renderAllGroupSteps();
+  updateAddBtn();
+  renderPreview();
+}
+
+function renderPreview() {
+  renderChart();
+  renderStats();
+  renderTable(getAllVisibleBonds());
+  renderSubtitle();
+}
+
+function updateAddBtn() {
+  // enabled only when all group picker values are set (non-null)
+  const btn  = document.getElementById("addBtn");
+  const ready = CFG.groups.every(g => state.picker[g.key] != null);
+  btn.disabled = !ready;
+}
+
+// ── SELECTION MANAGEMENT ─────────────────────────────────────────────────────
+function addSelection() {
+  const ready = CFG.groups.every(g => state.picker[g.key] != null);
+  if (!ready) return;
+  const exists = state.selections.some(s =>
+    CFG.groups.every(g => s[g.key] === state.picker[g.key])
+  );
+  if (!exists) {
+    const entry = { color: nextColor() };
+    CFG.groups.forEach(g => { entry[g.key] = state.picker[g.key]; });
+    state.selections.push(entry);
+  }
+  renderSelectionTags();
+  fullRender();
+}
+
+function removeSelection(idx) {
+  state.selections.splice(idx, 1);
+  renderSelectionTags();
+  fullRender();
+}
+
+function clearAllSelections() {
+  state.selections = [];
+  renderSelectionTags();
+  fullRender();
+}
+
+function highlightBond(isin) {
+  state.highlightedISIN = state.highlightedISIN === isin ? null : isin;
+  renderTable(getAllVisibleBonds());
+  renderChart();
+}
+
+function setChartType(type) {
+  state.chartType = type;
+  document.getElementById('btnScatter').classList.toggle('active', type === 'scatter');
+  document.getElementById('btnLine').classList.toggle('active', type === 'line');
+  renderChart();
+}
+
+// ── FIT PANEL ─────────────────────────────────────────────────────────────────
+
+function toggleFitPanel() {
+  const panel = document.getElementById("fitPanel");
+  panel.classList.toggle("open");
+  if (panel.classList.contains("open")) buildFitPanel();
+}
+
+// close fit panel on outside click
+document.addEventListener("click", e => {
+  const panel = document.getElementById("fitPanel");
+  if (!panel) return;
+  if (!panel.contains(e.target) && !e.target.closest("#btnFitSettings"))
+    panel.classList.remove("open");
+});
+
+function buildFitPanel() {
+  const panel = document.getElementById("fitPanel");
+  const methods = NS.METHODS;
+  const current = state.fitCfg.method;
+
+  // method buttons
+  let html = '<div class="fit-panel-title">Fitting Method</div>';
+  html += '<div class="fit-methods">';
+  for (const m of methods) {
+    html += `<button class="fit-method-btn ${m.key === current ? 'active' : ''}"
+                     onclick="setFitMethod('${m.key}')">${m.label.toUpperCase()}</button>`;
+  }
+  html += '</div>';
+
+  // params for current method
+  const mdef = methods.find(m => m.key === current);
+  if (mdef && mdef.params) {
+    html += '<div class="fit-params">';
+    for (const p of mdef.params) {
+      const val = state.fitCfg[p.key] ?? p.default;
+      html += `<div class="fit-param-row">
+        <span class="fit-param-label">${p.label}</span>
+        <select class="fit-param-select" onchange="setFitParam('${p.key}', this.value)">`;
+      for (const opt of p.options) {
+        const [v, lbl] = Array.isArray(opt) ? opt : [opt, String(opt)];
+        html += `<option value="${v}" ${String(v) === String(val) ? 'selected' : ''}>${lbl}</option>`;
+      }
+      html += '</select></div>';
+    }
+    html += '</div>';
+  }
+
+  // description
+  if (mdef) {
+    html += `<div class="fit-desc">${mdef.desc}</div>`;
+  }
+
+  panel.innerHTML = html;
+}
+
+function setFitMethod(method) {
+  state.fitCfg.method = method;
+  // reset method-specific params to defaults
+  const mdef = NS.METHODS.find(m => m.key === method);
+  if (mdef && mdef.params) {
+    for (const p of mdef.params) {
+      state.fitCfg[p.key] = p.default;
+    }
+  }
+  buildFitPanel();
+  if (state.chartType === 'line') renderChart();
+}
+
+function setFitParam(key, value) {
+  state.fitCfg[key] = value;
+  if (state.chartType === 'line') renderChart();
+}
+
+// ── SEARCH — wired dynamically in buildSidebar() ──────────────────────────────
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('pickerSteps').innerHTML =
+    '<div style="padding:16px;font-size:10px;color:var(--muted)">Loading…</div>';
+
+  // 1. load config.json
+  try {
+    const r = await fetch('_dashboard_config.json');
+    if (!r.ok) throw new Error(`_dashboard_config.json: HTTP ${r.status}`);
+    CFG = await r.json();
+  } catch (err) {
+    document.getElementById('pickerSteps').innerHTML = `
+      <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
+        <b>Could not load _dashboard_config.json</b><br>
+        Run: <span style="color:var(--muted)">python dashboard.py</span> first<br>
+        ${err.message}
+      </div>`;
+    return;
+  }
+
+  // 2. build FIELD_LABELS from config axes + optional field_labels map
+  CFG.axes.forEach(a => { FIELD_LABELS[a.key] = a.label; });
+  if (CFG.field_labels) {
+    Object.assign(FIELD_LABELS, CFG.field_labels);
+  }
+
+  // 3. set default axis fields from config
+  const defX = CFG.axes.find(a => a.default_x);
+  const defY = CFG.axes.find(a => a.default_y);
+  if (defX) state.xField = defX.key;
+  if (defY) state.yField = defY.key;
+
+  // 4. initialise picker state from group defaults
+  CFG.groups.forEach(g => { state.picker[g.key] = g.default ?? null; });
+
+  // 5. load data.json
+  try {
+    const r = await fetch('data.json');
+    if (!r.ok) throw new Error(`data.json: HTTP ${r.status}`);
+    allData = await r.json();
+    console.log(`Loaded ${allData.length} bond records`);
+  } catch (err) {
+    document.getElementById('pickerSteps').innerHTML = `
+      <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
+        <b>Could not load data.json</b><br>
+        Run: <span style="color:var(--muted)">python -m http.server 8000</span><br>
+        ${err.message}
+      </div>`;
+    return;
+  }
+
+  // 6. also exclude group keys from the table column system
+  CFG.groups.forEach(g => SKIP_IN_TABLE.add(g.key));
+
+  // 7. wire up everything
+  buildSidebar();
+  buildColSystem(allData[0]);
+  populateColPicker();
+  populateAxisSelects();
+  updateChartTitle();
+  renderAllGroupSteps();
+  renderSelectionTags();
+  fullRender();
+}
+
+init();
+</script>
+</body>
+</html>
