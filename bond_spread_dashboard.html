@@ -670,6 +670,194 @@
     border-color: var(--warn);
     color: var(--warn);
   }
+
+  /* ── settings overlay ── */
+  .settings-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 5000;
+    justify-content: center;
+    align-items: center;
+  }
+  .settings-overlay.open { display: flex; }
+
+  .settings-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px 28px;
+    box-shadow: 0 16px 64px rgba(0,0,0,0.6);
+  }
+  .settings-box::-webkit-scrollbar { width: 3px; }
+  .settings-box::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  .settings-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .settings-close {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 18px;
+    background: none;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .settings-close:hover { color: var(--neg); }
+
+  .settings-section {
+    margin-bottom: 20px;
+  }
+  .settings-section-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--accent3);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-hint {
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .filter-row .filter-key {
+    flex: 1;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+  }
+  .filter-row select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-row select option { background: var(--surface); }
+  .filter-row .filter-remove {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    background: none;
+    border: none;
+    padding: 0 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .filter-row .filter-remove:hover { color: var(--neg); }
+  .filter-row .filter-move {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11px;
+    background: none;
+    border: none;
+    padding: 0 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .filter-row .filter-move:hover { color: var(--accent3); }
+
+  .settings-add-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .settings-add-row select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    outline: none;
+    flex: 1;
+  }
+  .settings-add-btn {
+    padding: 4px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    border: 1px dashed var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .settings-add-btn:hover { background: rgba(0,212,170,0.1); }
+
+  .settings-apply {
+    padding: 8px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s;
+    margin-top: 16px;
+  }
+  .settings-apply:hover { opacity: 0.9; }
+
+  .settings-reset {
+    padding: 8px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .settings-reset:hover { border-color: var(--neg); color: var(--neg); }
+
+  .col-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    background: rgba(77,159,255,0.1);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    margin: 2px;
+  }
+  .col-tag .col-tag-x {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .col-tag .col-tag-x:hover { color: var(--neg); }
 </style>
 </head>
 <body>
@@ -680,10 +868,16 @@
   </div>
   <div class="header-right">
     <div class="live-dot"></div>
+    <button class="help-btn" onclick="openSettings()" title="Configure filters & columns">⚙ SETTINGS</button>
     <a class="help-btn" href="fitting_guide.html" target="_blank" title="Curve fitting reference">? GUIDE</a>
 <span id="clock">--:--:--</span>
   </div>
 </header>
+
+<!-- settings overlay -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-box" id="settingsBox"></div>
+</div>
 
 <div class="layout">
 
@@ -1574,7 +1768,290 @@ function setFitParam(key, value) {
   if (state.chartType === 'line') renderChart();
 }
 
-// ── SEARCH — wired dynamically in buildSidebar() ──────────────────────────────
+// ── SETTINGS SYSTEM ───────────────────────────────────────────────────────────
+// User preferences are stored in localStorage and override defaults.
+// The settings panel lets users add/remove sidebar filters and table columns
+// directly in the browser — no need to edit config files.
+
+const STORAGE_KEY = "dashboard_settings_v1";
+let allColumns = [];   // [{key, type, sample}] — detected from data at load time
+
+function detectColumns(sample) {
+  allColumns = [];
+  for (const [key, val] of Object.entries(sample)) {
+    let type = "string";
+    if (typeof val === "number") type = "number";
+    else if (/^\d{4}-\d{2}-\d{2}/.test(val)) type = "date";
+    allColumns.push({ key, type, sample: val });
+  }
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function saveSettings(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+}
+
+function clearSettings() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+}
+
+function getDefaultSettings() {
+  // auto-detect sensible defaults from the data
+  const sample = allData[0] || {};
+  const keys = Object.keys(sample);
+
+  // find likely group columns
+  const tickerKey = keys.find(k => /ticker|issuer/i.test(k)) || null;
+  const typeKey = keys.find(k => /^type$|seniority|subordinat/i.test(k)) || null;
+
+  const filters = [];
+  if (tickerKey) filters.push({ key: tickerKey, label: tickerKey.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()), style: "search" });
+  if (typeKey) filters.push({ key: typeKey, label: typeKey.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()), style: "pills", show_all: true, default: "All" });
+  filters.push({ key: "date", label: "Snapshot Date", style: "datelist" });
+
+  // default axes: only TTM + oas — user adds more via settings
+  const axes = [
+    { key: "ttm", label: "TTM (years)", default_x: true },
+    { key: "oas", label: "OAS (bps)", default_y: true },
+  ];
+
+  return { filters, axes };
+}
+
+function buildCFGFromSettings(settings) {
+  const groups = settings.filters.map((f, i) => {
+    const g = {
+      key: f.key,
+      label: f.label || f.key.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),
+      searchable: f.style === "search",
+      all_option: !!f.show_all,
+      default: f.show_all ? (f.default || "All") : null,
+    };
+    if (f.style === "datelist") {
+      g.sort = "desc";
+      g.show_count = true;
+      g.is_last = true;
+    }
+    return g;
+  });
+
+  return {
+    groups,
+    axes: settings.axes || [],
+    field_labels: {},
+  };
+}
+
+// ── SETTINGS UI ──────────────────────────────────────────────────────────────
+
+let pendingSettings = null;
+
+function openSettings() {
+  const saved = loadSettings() || getDefaultSettings();
+  pendingSettings = JSON.parse(JSON.stringify(saved));
+  renderSettingsPanel();
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+
+function closeSettings() {
+  document.getElementById("settingsOverlay").classList.remove("open");
+  pendingSettings = null;
+}
+
+// close on overlay background click
+document.addEventListener("click", e => {
+  if (e.target.id === "settingsOverlay") closeSettings();
+});
+
+function renderSettingsPanel() {
+  const box = document.getElementById("settingsBox");
+  const s = pendingSettings;
+  const usedKeys = new Set(s.filters.map(f => f.key));
+  const available = allColumns.filter(c => !usedKeys.has(c.key) && c.key !== "isin" && c.key !== "maturity");
+
+  let html = `
+    <div class="settings-title">
+      <span>⚙ DASHBOARD SETTINGS</span>
+      <button class="settings-close" onclick="closeSettings()">×</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Sidebar Filters</div>
+      <div class="settings-hint">Drag order matters: first = search list, middle = pill buttons, last = date list with ADD button</div>
+      <div id="settingsFilters">`;
+
+  s.filters.forEach((f, i) => {
+    html += `
+      <div class="filter-row">
+        <span class="filter-move" onclick="moveFilter(${i},-1)" title="Move up">▲</span>
+        <span class="filter-move" onclick="moveFilter(${i},1)" title="Move down">▼</span>
+        <span class="filter-key">${f.key}</span>
+        <select onchange="setFilterStyle(${i}, this.value)">
+          <option value="search" ${f.style==='search'?'selected':''}>Search list</option>
+          <option value="pills" ${f.style==='pills'?'selected':''}>Pills</option>
+          <option value="datelist" ${f.style==='datelist'?'selected':''}>Date list</option>
+        </select>
+        <label style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;cursor:pointer">
+          <input type="checkbox" ${f.show_all?'checked':''} onchange="setFilterShowAll(${i}, this.checked)"
+                 style="accent-color:var(--accent3);width:10px;height:10px;cursor:pointer"> All
+        </label>
+        <button class="filter-remove" onclick="removeFilter(${i})" title="Remove">×</button>
+      </div>`;
+  });
+
+  html += `
+      </div>
+      <div class="settings-add-row">
+        <select id="addFilterSelect">
+          <option value="">+ Add column as filter…</option>`;
+  available.forEach(c => {
+    html += `<option value="${c.key}">${c.key} (${c.type})</option>`;
+  });
+  html += `
+        </select>
+        <button class="settings-add-btn" onclick="addFilter()">ADD</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Chart Axes</div>
+      <div class="settings-hint">Numeric columns available as X/Y selectors. TTM and OAS are always included.</div>
+      <div id="settingsAxes" style="display:flex;flex-wrap:wrap;gap:4px">`;
+
+  const axisKeys = new Set((s.axes || []).map(a => a.key));
+  allColumns.forEach(c => {
+    if (c.type !== "number" || c.key === "isin") return;
+    const active = axisKeys.has(c.key) || c.key === "oas";
+    const locked = c.key === "oas"; // oas always present
+    html += `
+      <label class="col-tag" style="${active ? 'border-color:var(--accent3)' : 'opacity:0.5'}">
+        <input type="checkbox" ${active?'checked':''} ${locked?'disabled':''}
+               onchange="toggleAxis('${c.key}', this.checked)"
+               style="accent-color:var(--accent3);width:10px;height:10px;cursor:pointer">
+        ${c.key}
+      </label>`;
+  });
+  // TTM is computed, always included
+  html += `<label class="col-tag" style="border-color:var(--accent3)">
+    <input type="checkbox" checked disabled style="accent-color:var(--accent3);width:10px;height:10px"> ttm
+  </label>`;
+
+  html += `
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center">
+      <button class="settings-apply" onclick="applySettings()">APPLY & RELOAD</button>
+      <button class="settings-reset" onclick="resetSettings()">RESET DEFAULTS</button>
+    </div>`;
+
+  box.innerHTML = html;
+}
+
+function moveFilter(idx, dir) {
+  const f = pendingSettings.filters;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= f.length) return;
+  [f[idx], f[newIdx]] = [f[newIdx], f[idx]];
+  renderSettingsPanel();
+}
+
+function setFilterStyle(idx, style) {
+  pendingSettings.filters[idx].style = style;
+  renderSettingsPanel();
+}
+
+function setFilterShowAll(idx, checked) {
+  pendingSettings.filters[idx].show_all = checked;
+  if (checked) pendingSettings.filters[idx].default = "All";
+  else delete pendingSettings.filters[idx].default;
+}
+
+function removeFilter(idx) {
+  pendingSettings.filters.splice(idx, 1);
+  renderSettingsPanel();
+}
+
+function addFilter() {
+  const sel = document.getElementById("addFilterSelect");
+  const key = sel.value;
+  if (!key) return;
+  const col = allColumns.find(c => c.key === key);
+  pendingSettings.filters.push({
+    key,
+    label: key.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()),
+    style: "pills",
+    show_all: col && col.type === "string",
+    default: col && col.type === "string" ? "All" : undefined,
+  });
+  renderSettingsPanel();
+}
+
+function toggleAxis(key, checked) {
+  if (!pendingSettings.axes) pendingSettings.axes = [];
+  if (checked) {
+    if (!pendingSettings.axes.find(a => a.key === key)) {
+      pendingSettings.axes.push({ key, label: key.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) });
+    }
+  } else {
+    pendingSettings.axes = pendingSettings.axes.filter(a => a.key !== key);
+  }
+  renderSettingsPanel();
+}
+
+function applySettings() {
+  saveSettings(pendingSettings);
+  closeSettings();
+  // rebuild everything
+  rebuildFromSettings();
+}
+
+function resetSettings() {
+  clearSettings();
+  pendingSettings = getDefaultSettings();
+  renderSettingsPanel();
+}
+
+function rebuildFromSettings() {
+  const settings = loadSettings() || getDefaultSettings();
+  CFG = buildCFGFromSettings(settings);
+
+  // rebuild FIELD_LABELS
+  FIELD_LABELS = {};
+  CFG.axes.forEach(a => { FIELD_LABELS[a.key] = a.label; });
+
+  // reset state
+  const defX = CFG.axes.find(a => a.default_x);
+  const defY = CFG.axes.find(a => a.default_y);
+  if (defX) state.xField = defX.key;
+  if (defY) state.yField = defY.key;
+
+  state.selections = [];
+  state.picker = {};
+  state.highlightedISIN = null;
+  CFG.groups.forEach(g => { state.picker[g.key] = g.default ?? null; });
+
+  SKIP_IN_TABLE = new Set();
+  CFG.groups.forEach(g => {
+    if (g.key !== "date") SKIP_IN_TABLE.add(g.key);
+  });
+
+  buildSidebar();
+  buildColSystem(allData[0]);
+  populateColPicker();
+  populateAxisSelects();
+  updateChartTitle();
+  renderAllGroupSteps();
+  renderSelectionTags();
+  fullRender();
+}
 
 // ── CLOCK ─────────────────────────────────────────────────────────────────────
 function updateClock() {
@@ -1589,37 +2066,7 @@ async function init() {
   document.getElementById('pickerSteps').innerHTML =
     '<div style="padding:16px;font-size:10px;color:var(--muted)">Loading…</div>';
 
-  // 1. load config.json
-  try {
-    const r = await fetch('_dashboard_config.json');
-    if (!r.ok) throw new Error(`_dashboard_config.json: HTTP ${r.status}`);
-    CFG = await r.json();
-  } catch (err) {
-    document.getElementById('pickerSteps').innerHTML = `
-      <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
-        <b>Could not load _dashboard_config.json</b><br>
-        Run: <span style="color:var(--muted)">python dashboard.py</span> first<br>
-        ${err.message}
-      </div>`;
-    return;
-  }
-
-  // 2. build FIELD_LABELS from config axes + optional field_labels map
-  CFG.axes.forEach(a => { FIELD_LABELS[a.key] = a.label; });
-  if (CFG.field_labels) {
-    Object.assign(FIELD_LABELS, CFG.field_labels);
-  }
-
-  // 3. set default axis fields from config
-  const defX = CFG.axes.find(a => a.default_x);
-  const defY = CFG.axes.find(a => a.default_y);
-  if (defX) state.xField = defX.key;
-  if (defY) state.yField = defY.key;
-
-  // 4. initialise picker state from group defaults
-  CFG.groups.forEach(g => { state.picker[g.key] = g.default ?? null; });
-
-  // 5. load data.json
+  // 1. load data.json (the only required file now)
   try {
     const r = await fetch('data.json');
     if (!r.ok) throw new Error(`data.json: HTTP ${r.status}`);
@@ -1629,13 +2076,33 @@ async function init() {
     document.getElementById('pickerSteps').innerHTML = `
       <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
         <b>Could not load data.json</b><br>
-        Run: <span style="color:var(--muted)">python -m http.server 8000</span><br>
+        Run: <span style="color:var(--muted)">python dashboard.py</span><br>
         ${err.message}
       </div>`;
     return;
   }
 
-  // 6. also exclude group keys from the table column system
+  // 2. detect all available columns from the data
+  detectColumns(allData[0]);
+
+  // 3. build CFG from saved settings or defaults
+  const settings = loadSettings() || getDefaultSettings();
+  if (!loadSettings()) saveSettings(settings);  // persist defaults on first load
+  CFG = buildCFGFromSettings(settings);
+
+  // 4. build FIELD_LABELS
+  FIELD_LABELS = {};
+  CFG.axes.forEach(a => { FIELD_LABELS[a.key] = a.label; });
+
+  // 5. set defaults
+  const defX = CFG.axes.find(a => a.default_x);
+  const defY = CFG.axes.find(a => a.default_y);
+  if (defX) state.xField = defX.key;
+  if (defY) state.yField = defY.key;
+
+  CFG.groups.forEach(g => { state.picker[g.key] = g.default ?? null; });
+
+  // 6. exclude group keys from table
   CFG.groups.forEach(g => {
     if (g.key !== "date") SKIP_IN_TABLE.add(g.key);
   });

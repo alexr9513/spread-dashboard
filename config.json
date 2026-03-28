@@ -1,138 +1,38 @@
 {
   "_README": [
-    "HOW IT WORKS:",
-    "  1. Open your CSV/Parquet file and note the exact column names.",
-    "  2. Fill in 'your_column' with the name as it appears in YOUR file.",
-    "  3. Run:  python dashboard.py",
-    "  4. Open the dashboard in a browser (python -m http.server 8000).",
+    "MINIMAL CONFIG — only the essentials.",
+    "Everything else (filters, table columns, axes) is configured",
+    "directly in the dashboard browser UI via the ⚙ SETTINGS button.",
     "",
-    "SECTIONS:",
-    "  columns_essential  → columns the dashboard NEEDS to work",
-    "  columns_sidebar    → columns used to filter/group bonds (left panel)",
-    "  columns_extra      → extra info columns shown in the bottom table",
-    "  chart_axes         → which numeric columns can be used as X/Y axes",
-    ""
+    "  1. Set 'input_file' to your data file (.parquet, .csv, .xlsx)",
+    "  2. Map the 4 essential columns below to YOUR column names",
+    "  3. Run:  python dashboard.py",
+    "  4. Serve: python -m http.server 8000",
+    "  5. Open the dashboard and click ⚙ SETTINGS to configure filters"
   ],
 
   "input_file": "GFIM_EUR_HY.parquet",
 
-
   "columns_essential": {
-    "_help": [
-      "These columns are REQUIRED for the dashboard to work.",
-      "Set 'your_column' to the exact name in your dataset.",
-      "DO NOT change 'dashboard_key' — the dashboard needs these exact names."
-    ],
-
     "bond_id": {
       "your_column": "ISIN",
       "dashboard_key": "isin",
-      "description": "Unique bond identifier (e.g. ISIN, CUSIP, bond ID)"
+      "description": "Unique bond identifier"
     },
     "spread": {
       "your_column": "OAS vs Govt",
       "dashboard_key": "oas",
-      "description": "Bond spread in basis points (OAS, ASW, Z-spread…)"
+      "description": "Bond spread in basis points"
     },
     "maturity_date": {
       "your_column": "Maturity",
       "dashboard_key": "maturity",
-      "description": "Bond maturity date (any date format: YYYY-MM-DD, DD/MM/YYYY…)"
+      "description": "Bond maturity date"
     },
     "snapshot_date": {
       "your_column": "Date",
       "dashboard_key": "date",
-      "description": "Date of the data snapshot / observation"
+      "description": "Date of the data snapshot"
     }
-  },
-
-
-  "columns_sidebar": {
-    "_help": [
-      "These columns appear on the LEFT SIDE of the dashboard as filters.",
-      "They let you group and select bonds (e.g. by issuer, bond type, date).",
-      "The ORDER matters: first = main search, middle = pill filters, last = date list.",
-      "",
-      "Each entry needs:",
-      "  your_column   → exact column name in your dataset",
-      "  label         → what the user sees in the dashboard",
-      "  style         → 'search' (searchable list), 'pills' (clickable buttons), or 'datelist'",
-      "",
-      "Optional:",
-      "  default       → default value (e.g. 'All' to show all bond types)",
-      "  show_all      → true/false, add an 'All' option that shows everything"
-    ],
-
-    "filters": [
-      {
-        "your_column": "Ticker",
-        "label": "Issuer",
-        "style": "search"
-      },
-      {
-        "your_column": "Type",
-        "label": "Bond Type",
-        "style": "pills",
-        "default": "All",
-        "show_all": true
-      },
-      {
-        "your_column": "Date",
-        "label": "Snapshot Date",
-        "style": "datelist",
-        "default": "latest"
-      }
-    ]
-  },
-
-
-  "columns_extra": {
-    "_help": [
-      "These columns appear ONLY in the bottom table for extra bond info.",
-      "Add as many as you want — they won't affect the chart or filters.",
-      "Just list the exact column names from your dataset."
-    ],
-
-    "columns": [
-      "Weight",
-      "outstanding_debt",
-      "Composite Rating",
-      "Coupon"
-    ]
-  },
-
-
-  "chart_axes": {
-    "_help": [
-      "These columns can be selected as X or Y axis on the chart.",
-      "TTM (time to maturity) is always available — no need to add it.",
-      "The spread column from 'columns_essential' is automatically included too.",
-      "",
-      "For each axis, set:",
-      "  your_column  → exact column name in your dataset",
-      "  label        → display name on the chart",
-      "  default_x    → true if this should be the default X axis",
-      "  default_y    → true if this should be the default Y axis"
-    ],
-
-    "axes": [
-      {
-        "your_column": "Effective Duration",
-        "label": "Effective Duration"
-      },
-      {
-        "your_column": "Yield to Worst",
-        "label": "Yield to Worst (%)"
-      }
-    ]
-  },
-
-
-  "display_labels": {
-    "_help": [
-      "Optional: override how column names appear in the dashboard.",
-      "Format:  'internal_key': 'Display Label'",
-      "If not set, the dashboard will auto-generate labels from column names."
-    ]
   }
 }
