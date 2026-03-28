@@ -980,8 +980,7 @@ function renderChart() {
   const yF = state.yField;
   const xl = getFieldLabel(xF);
   const yl = getFieldLabel(yF);
-  const mode = state.chartType === 'line' && (xF === 'ttm' || xF === 'duration')
-    ? 'ns' : state.chartType === 'line' ? 'line' : 'scatter';
+  const mode = state.chartType === 'line' ? 'ns' : 'scatter';
 
   function toPoint(b) {
     const x = getBondValue(b, xF);
