@@ -51,7 +51,7 @@ def load_config() -> dict:
 
     # --- Validate essential columns ---
     essential = cfg.get("columns_essential", {})
-    required_keys = ["bond_id", "spread", "maturity_date", "snapshot_date", "coupon"]
+    required_keys = ["bond_id", "spread", "maturity_date", "snapshot_date"]
     missing = [k for k in required_keys if k not in essential]
     if missing:
         print(f"ERROR: Missing essential columns in config.json: {missing}")

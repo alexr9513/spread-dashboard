@@ -19,10 +19,7 @@
       "label": "Yield to Worst (%)"
     }
   ],
-  "field_labels": {
-    "outstanding_debt": "Outstanding Debt",
-    "composite_rating": "Rating"
-  },
+  "field_labels": {},
   "groups": [
     {
       "key": "ticker",

@@ -43,11 +43,6 @@
       "your_column": "Date",
       "dashboard_key": "date",
       "description": "Date of the data snapshot / observation"
-    },
-    "coupon": {
-      "your_column": "Coupon",
-      "dashboard_key": "coupon",
-      "description": "Bond coupon rate (%)"
     }
   },
 
@@ -84,7 +79,8 @@
       {
         "your_column": "Date",
         "label": "Snapshot Date",
-        "style": "datelist"
+        "style": "datelist",
+        "default": "latest"
       }
     ]
   },
@@ -100,7 +96,8 @@
     "columns": [
       "Weight",
       "outstanding_debt",
-      "Composite Rating"
+      "Composite Rating",
+      "Coupon"
     ]
   },
 
@@ -136,9 +133,6 @@
       "Optional: override how column names appear in the dashboard.",
       "Format:  'internal_key': 'Display Label'",
       "If not set, the dashboard will auto-generate labels from column names."
-    ],
-
-    "outstanding_debt": "Outstanding Debt",
-    "composite_rating": "Rating"
+    ]
   }
 }

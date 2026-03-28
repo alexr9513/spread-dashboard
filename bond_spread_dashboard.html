@@ -104,12 +104,14 @@
 
   /* ── sidebar ── */
   .sidebar {
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border2); }
 
   .sidebar-section {
     padding: 16px;
@@ -160,9 +162,11 @@
 
   /* issuer list */
   .issuer-list {
-    flex: 1;
     overflow-y: auto;
     padding: 8px 0;
+    min-height: 120px;
+    max-height: 200px;
+    flex-shrink: 0;
   }
   .issuer-list::-webkit-scrollbar { width: 3px; }
   .issuer-list::-webkit-scrollbar-track { background: transparent; }
@@ -697,7 +701,7 @@
     </div>
 
     <!-- Dynamic picker steps — rendered by JS from config.json groups -->
-    <div id="pickerSteps" style="display:contents"></div>
+    <div id="pickerSteps" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>
 
   </div>
 
@@ -915,7 +919,7 @@ function countBondsForValue(groupIdx, value) {
     if (val != null) bonds = bonds.filter(b => b[g.key] === val);
   }
   // for the first (searchable) group return unique ISIN count, not row count
-  if (groupIdx === 0) return new Set(bonds.map(b => b.isin)).size;
+  if (CFG.groups[groupIdx].searchable) return new Set(bonds.map(b => b.isin)).size;
   return bonds.length;
 }
 
@@ -986,7 +990,7 @@ function renderChart() {
     const x = getBondValue(b, xF);
     const y = getBondValue(b, yF);
     if (x == null || y == null || !isFinite(x) || !isFinite(y)) return null;
-    return { x, y, isin: b.isin, coupon: b.coupon };
+    return { x, y, isin: b.isin };
   }
 
   const datasets = [];
@@ -1014,7 +1018,7 @@ function renderChart() {
     const pvPoints = pvBonds.map(toPoint).filter(Boolean);
     if (pvPoints.length) {
       const pvLabel = `[preview] ${CFG.groups.map(g => state.picker[g.key]).join(" · ")}`;
-      datasets.push(...NS.buildPreviewDatasets({ points: pvPoints, mode, label: pvLabel, fitCfg: state.fitCfg }));
+      datasets.push(...NS.buildPreviewDatasets({ points: pvPoints, mode, label: pvLabel, fitCfg: state.fitCfg, highlightedISIN: state.highlightedISIN }));
     }
   }
 
@@ -1087,25 +1091,24 @@ function buildSidebar() {
     const flex      = isLast ? "flex:1; overflow:hidden; display:flex; flex-direction:column;" : "flex:0 0 auto;";
     const stepLabel = `${i + 1} · ${g.label}`;
 
-    if (i === 0 && g.searchable) {
-      // first group with search box — gets the scrollable issuer-list pattern
-      return `
-        <div class="sidebar-section" style="${flex}">
-          <div class="section-label">${stepLabel}</div>
-          <div class="search-wrap" style="margin-bottom:10px">
-            <span class="search-icon">⌕</span>
-            <input type="text" id="groupSearch_${g.key}" placeholder="Search ${g.label.toLowerCase()}…"
-                   oninput="renderGroupStep(0, this.value)">
-          </div>
-        </div>
-        <div class="issuer-list" id="groupList_${g.key}" style="max-height:160px"></div>`;
-    }
+    if (g.searchable) {
+          return `
+            <div class="sidebar-section" style="flex:0 0 auto;">
+              <div class="section-label">${stepLabel}</div>
+              <div class="search-wrap" style="margin-bottom:10px">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="groupSearch_${g.key}" placeholder="Search ${g.label.toLowerCase()}…"
+                      oninput="renderGroupStep(${i}, this.value)">
+              </div>
+            </div>
+            <div class="issuer-list" id="groupList_${g.key}" style="max-height:160px"></div>`;
+        }
 
     if (isLast) {
       return `
-        <div class="sidebar-section" style="${flex}">
+        <div class="sidebar-section" style="flex:0 0 auto;">
           <div class="section-label">${stepLabel}</div>
-          <div class="date-list" id="groupList_${g.key}" style="flex:1;overflow-y:auto;max-height:none">
+          <div class="date-list" id="groupList_${g.key}" style="max-height:200px;overflow-y:auto">
             <div style="font-size:10px;color:var(--muted);padding:4px">Select ${CFG.groups[0].label.toLowerCase()} first</div>
           </div>
           <button class="add-btn" id="addBtn" disabled onclick="addSelection()">+ ADD TO CHART</button>
@@ -1113,11 +1116,12 @@ function buildSidebar() {
     }
 
     // middle group — pills
+    const prevLabel = i > 0 ? CFG.groups[i - 1].label.toLowerCase() : "";
     return `
       <div class="sidebar-section" style="${flex}">
         <div class="section-label">${stepLabel}</div>
         <div class="bond-types" id="groupList_${g.key}">
-          <span style="font-size:10px;color:var(--muted)">Select ${CFG.groups[i - 1].label.toLowerCase()} first</span>
+          ${i > 0 ? `<span style="font-size:10px;color:var(--muted)">Select ${prevLabel} first</span>` : ""}
         </div>
       </div>`;
   }).join("");
@@ -1146,7 +1150,7 @@ function renderGroupStep(groupIdx, filter = "") {
     return;
   }
 
-  if (groupIdx === 0 && g.searchable) {
+  if (g.searchable) {
     // issuer-list style
     const filtered = values.filter(v =>
       String(v).toLowerCase().includes(filter.toLowerCase())
@@ -1236,7 +1240,7 @@ function renderStats() {
 // the column picker. The default visible set is the first 8 optional columns.
 
 const ALWAYS_LOCKED = new Set(["isin"]);      // never removable
-let SKIP_IN_TABLE = new Set(["ticker", "type", "date"]);  // extended at init with all group keys
+let SKIP_IN_TABLE = new Set(["ticker", "type"]);  // extended at init with all group keys
 
 // built at load time
 let ALL_COLS      = [];   // [{key, label, locked, render}, ...]
@@ -1632,7 +1636,9 @@ async function init() {
   }
 
   // 6. also exclude group keys from the table column system
-  CFG.groups.forEach(g => SKIP_IN_TABLE.add(g.key));
+  CFG.groups.forEach(g => {
+    if (g.key !== "date") SKIP_IN_TABLE.add(g.key);
+  });
 
   // 7. wire up everything
   buildSidebar();

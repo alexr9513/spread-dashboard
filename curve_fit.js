@@ -488,7 +488,7 @@
 
       result.push({
         label,
-        data: points.map((d, i) => ({ x: d.x, y: d.y, isin: d.isin, coupon: d.coupon, residual: resids[i] })),
+        data: points.map((d, i) => ({ x: d.x, y: d.y, isin: d.isin, residual: resids[i] })),
         backgroundColor: points.map(d => d.isin === hi ? "#ffffff" : col + "bb"),
         borderColor: points.map(d => d.isin === hi ? "#fff" : col + "66"),
         borderWidth: 1,
@@ -528,7 +528,8 @@
     return result;
   }
 
-  function buildPreviewDatasets({ points, mode, label, fitCfg }) {
+  function buildPreviewDatasets({ points, mode, label, fitCfg, highlightedISIN }) {
+    const hi = highlightedISIN;
     const sorted = [...points].sort((a,b) => a.x - b.x);
     const tMin = sorted.length ? Math.max(0.1, sorted[0].x) : 0.1;
     const tMax = sorted.length ? sorted[sorted.length - 1].x : 10;
@@ -536,8 +537,11 @@
 
     result.push({
       label, data: points,
-      backgroundColor: "rgba(255,255,255,0.25)", borderColor: "rgba(255,255,255,0.60)",
-      borderWidth: 1, borderDash: [3,3], pointRadius: 5, pointHoverRadius: 7,
+      backgroundColor: points.map(d => d.isin === hi ? "#ffffff" : "rgba(255,255,255,0.25)"),
+      borderColor: "rgba(255,255,255,0.60)",
+      borderWidth: 1, borderDash: [3,3],
+      pointRadius: points.map(d => d.isin === hi ? 9 : 5),
+      pointHoverRadius: 7,
       showLine: mode === "line", tension: 0.3,
     });
 
