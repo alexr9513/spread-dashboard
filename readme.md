@@ -7,7 +7,7 @@
 ├── curve_fit.js                 ← curve fitting engine (don't touch)
 ├── fitting_guide.html           ← help page (opens from ? GUIDE button)
 ├── config.json                  ← YOUR settings (edit this)
-├── dashboard.py                 ← data generator script
+├── dashboard.py                 ← data generator script (edit this if needed)
 ├── _dashboard_config.json       ← auto-generated (don't touch)
 └── data.json                    ← auto-generated (don't touch)
 ```
@@ -28,14 +28,10 @@ pip install pandas pyarrow
 
 Open **`config.json`** in any text editor. It has four sections with instructions inside:
 
-- **`columns_essential`** — map your column names to the ones the dashboard needs (bond ID, spread, maturity date, snapshot date, coupon)
-- **`columns_sidebar`** — choose which columns appear as filters on the left panel
-- **`columns_extra`** — add any extra columns for the bottom table
-- **`chart_axes`** — add numeric columns available as X/Y axes
+- Set `"input_file"` at the top to your data file name (supports `.parquet`, `.csv`, `.xlsx`).
 
-Just replace `"your_column": "..."` with the exact column name from your dataset.
+- **`columns_essential`** — map your column names to the ones the dashboard needs (bond ID, spread, maturity date, snapshot date, coupon), Just replace `"your_column": "..."` with the exact column name from your dataset.
 
-Set `"input_file"` at the top to your data file name (supports `.parquet`, `.csv`, `.xlsx`).
 
 ### 3. Generate the data
 
@@ -61,8 +57,8 @@ http://localhost:8000/bond_spread_dashboard.html
 
 ### 5. When you update your data
 
-Just re-run step 3 and hard-refresh the browser (`Ctrl + Shift + R`).
+Just re-run the dashboard.py file and hard-refresh the browser (`Ctrl + Shift + R`).
 
 ## Curve Fitting
 
-Click **FIT CURVE** to fit a spread curve. Click **⚙** to choose the fitting method and tune parameters. Click **? GUIDE** in the top-right corner for a full explanation of each method.
+Click **FIT CURVE** to fit a spread curve. Click **⚙** to choose the fitting method and tune parameters. Click **? GUIDE** in the top-right corner for a full explanation of each method. Click **? HELP** in the top-right corner to display a documentation for the functionality of the dashboard.
