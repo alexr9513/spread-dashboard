@@ -5,10 +5,11 @@
 ```
 ├── bond_spread_dashboard.html   ← the dashboard (open in browser)
 ├── curve_fit.js                 ← curve fitting engine (don't touch)
+├── dashboard_functions.js       ← javacript functions for the dynamic of the page (don't touch)
 ├── fitting_guide.html           ← help page (opens from ? GUIDE button)
+├── user_guide.html              ← user help page (opens from ? HELP button)
 ├── config.json                  ← YOUR settings (edit this)
 ├── dashboard.py                 ← data generator script (edit this if needed)
-├── _dashboard_config.json       ← auto-generated (don't touch)
 └── data.json                    ← auto-generated (don't touch)
 ```
 
@@ -39,9 +40,7 @@ Open **`config.json`** in any text editor. It has four sections with instruction
 python dashboard.py
 ```
 
-This reads your dataset + `config.json` and creates two files:
-- `data.json` (bond data for the browser)
-- `_dashboard_config.json` (internal config for the HTML)
+This reads your dataset + `config.json` and creates `data.json` (bond data for the browser)
 
 ### 4. Launch
 
