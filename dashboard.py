@@ -206,7 +206,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     "Tier1 Ratio CIQ", "Prov for Loan Losses CIQ", "Non perf Loans to Total Loans CIQ",
     "Total Capital Ratio CIQ", "Total Employees CIQ", "SP Price Target CIQ",
     "SP Price Close CIQ", "SP Est 5Y EPS Gr CIQ", "EPS Med NTM 0",
-    "EPS Revision Ratio", "Daily Vol 260J","Ebitda Margin", "Reco Analyst", "NetDebt to EBITDA exFIN", "Current Ratio"
+    "EPS Revision Ratio", "Daily Vol 260J","Ebitda Margin", "Reco Analyst", "NetDebt to EBITDA exFIN", "Current Ratio",
     "key_isin_date", "FileDate", "UniverseDate", "YearMonth", "MaturityYear", "TTM",
     "CIQ_ID", "Company SEDOL", "Source data", "Rating Numérique","Rating_Score_pays","Subordonnee_dummy",
     "Prior Month-End % Weight", "Prior Month-End Accrued Interest",
