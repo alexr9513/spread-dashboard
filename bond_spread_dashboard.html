@@ -40,6 +40,22 @@
       </div>
       <div id="selectionTags" style="display:flex;flex-direction:column;gap:4px;
            max-height:130px;overflow-y:auto;margin-bottom:8px"></div>
+      <div style="display:flex;gap:4px;padding-bottom:8px">
+        <button class="save-view-btn" onclick="promptSaveView()" title="Save current series as a named view">💾 SAVE</button>
+        <button class="save-view-btn" onclick="openViewsPanel()" title="Load a saved view">📂 VIEWS</button>
+        <button class="save-view-btn" style="margin-left:auto" onclick="exportViews()" title="Export all views to JSON">↓</button>
+        <button class="save-view-btn" onclick="importViews()" title="Import views from JSON">↑</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportFile(event)">
+    </div>
+
+    <!-- Saved views panel (toggled) -->
+    <div id="viewsPanel" class="views-panel">
+      <div class="section-label" style="margin-bottom:6px">
+        <span>Saved Views</span>
+        <button class="clear-btn" onclick="closeViewsPanel()">close</button>
+      </div>
+      <div id="viewsList"></div>
     </div>
 
     <!-- Dynamic picker steps — rendered by JS from config -->

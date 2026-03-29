@@ -946,3 +946,85 @@ tbody td {
 
 .table-collapsed .bond-table-wrap { display: none; }
 .table-collapsed .col-picker-btn { display: none; }
+
+/* ── saved views ── */
+.save-view-btn {
+  padding: 3px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.save-view-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.views-panel {
+  display: none;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  max-height: 240px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.views-panel.open { display: block; }
+.views-panel::-webkit-scrollbar { width: 3px; }
+.views-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.view-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  gap: 6px;
+  transition: background 0.1s;
+}
+.view-item:hover { background: rgba(255,255,255,0.02); }
+.view-item:last-child { border-bottom: none; }
+
+.view-name {
+  flex: 1;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.view-name:hover { color: var(--accent); }
+
+.view-meta {
+  font-size: 8px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.view-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.view-action-btn {
+  padding: 1px 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.view-action-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.view-action-btn.delete:hover { border-color: var(--neg); color: var(--neg); }
+
+.views-empty {
+  font-size: 9px;
+  color: var(--muted);
+  padding: 8px 0;
+  text-align: center;
+  font-style: italic;
+}

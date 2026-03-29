@@ -76,6 +76,7 @@ function setAxis(axis, field) {
   if (axis === "x") state.xField = field;
   else              state.yField = field;
   updateChartTitle();
+  autoSaveSelections();
   renderChart();
 }
 
@@ -630,12 +631,14 @@ function addSelection() {
     state.selections.push(entry);
   }
   renderSelectionTags();
+  autoSaveSelections();
   fullRender();
 }
 
 function removeSelection(idx) {
   state.selections.splice(idx, 1);
   renderSelectionTags();
+  autoSaveSelections();
   fullRender();
 }
 
@@ -643,6 +646,7 @@ function clearAllSelections() {
   state.selections = [];
   playerStop();
   renderSelectionTags();
+  autoSaveSelections();
   fullRender();
 }
 
@@ -661,6 +665,7 @@ function setChartType(type) {
   state.chartType = type;
   document.getElementById('btnScatter').classList.toggle('active', type === 'scatter');
   document.getElementById('btnLine').classList.toggle('active', type === 'line');
+  autoSaveSelections();
   renderChart();
 }
 
@@ -1139,6 +1144,217 @@ function rebuildFromSettings() {
   fullRender();
 }
 
+// ── SAVED VIEWS SYSTEM ──────────────────────────────────────────────────────
+// Persists named views (selection sets) in localStorage.
+// Also auto-saves the current working selections so they restore on reload.
+
+const VIEWS_KEY = "dashboard_saved_views_v1";
+const AUTOSAVE_KEY = "dashboard_autosave_v1";
+
+function loadViews() {
+  try {
+    const raw = localStorage.getItem(VIEWS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+function saveViewsStore(views) {
+  try { localStorage.setItem(VIEWS_KEY, JSON.stringify(views)); } catch (e) {}
+}
+
+function autoSaveSelections() {
+  try {
+    const payload = {
+      selections: state.selections,
+      chartType: state.chartType,
+      xField: state.xField,
+      yField: state.yField,
+      fitCfg: state.fitCfg,
+    };
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function autoRestoreSelections() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!payload.selections || !payload.selections.length) return false;
+
+    // validate that the selection keys match the current CFG groups
+    const groupKeys = CFG.groups.map(g => g.key);
+    const valid = payload.selections.filter(sel =>
+      groupKeys.every(k => sel[k] != null)
+    );
+    if (!valid.length) return false;
+
+    state.selections = valid;
+    if (payload.chartType) state.chartType = payload.chartType;
+    if (payload.xField) state.xField = payload.xField;
+    if (payload.yField) state.yField = payload.yField;
+    if (payload.fitCfg) state.fitCfg = { ...state.fitCfg, ...payload.fitCfg };
+    return true;
+  } catch (e) { return false; }
+}
+
+function promptSaveView() {
+  if (!state.selections.length) {
+    alert("Add at least one series before saving a view.");
+    return;
+  }
+  const name = prompt("View name:", "");
+  if (!name || !name.trim()) return;
+
+  const views = loadViews();
+  views.push({
+    name: name.trim(),
+    date: new Date().toISOString().slice(0, 10),
+    selections: JSON.parse(JSON.stringify(state.selections)),
+    chartType: state.chartType,
+    xField: state.xField,
+    yField: state.yField,
+    fitCfg: { ...state.fitCfg },
+  });
+  saveViewsStore(views);
+
+  // if views panel is open, refresh it
+  if (document.getElementById("viewsPanel").classList.contains("open")) {
+    renderViewsList();
+  }
+}
+
+function loadView(idx) {
+  const views = loadViews();
+  const v = views[idx];
+  if (!v) return;
+
+  // validate selections against current CFG
+  const groupKeys = CFG.groups.map(g => g.key);
+  const valid = v.selections.filter(sel =>
+    groupKeys.every(k => sel[k] != null)
+  );
+  if (!valid.length) {
+    alert("This view's filters don't match the current data columns. It may have been saved with a different dataset.");
+    return;
+  }
+
+  state.selections = valid;
+  if (v.chartType) {
+    state.chartType = v.chartType;
+    document.getElementById('btnScatter').classList.toggle('active', v.chartType === 'scatter');
+    document.getElementById('btnLine').classList.toggle('active', v.chartType === 'line');
+  }
+  if (v.xField) state.xField = v.xField;
+  if (v.yField) state.yField = v.yField;
+  if (v.fitCfg) state.fitCfg = { ...state.fitCfg, ...v.fitCfg };
+
+  populateAxisSelects();
+  updateChartTitle();
+  renderSelectionTags();
+  autoSaveSelections();
+  fullRender();
+  closeViewsPanel();
+}
+
+function deleteView(idx) {
+  const views = loadViews();
+  const name = views[idx]?.name || "this view";
+  if (!confirm(`Delete "${name}"?`)) return;
+  views.splice(idx, 1);
+  saveViewsStore(views);
+  renderViewsList();
+}
+
+function renameView(idx) {
+  const views = loadViews();
+  const v = views[idx];
+  if (!v) return;
+  const name = prompt("New name:", v.name);
+  if (!name || !name.trim()) return;
+  v.name = name.trim();
+  saveViewsStore(views);
+  renderViewsList();
+}
+
+function openViewsPanel() {
+  renderViewsList();
+  document.getElementById("viewsPanel").classList.add("open");
+}
+
+function closeViewsPanel() {
+  document.getElementById("viewsPanel").classList.remove("open");
+}
+
+function renderViewsList() {
+  const views = loadViews();
+  const el = document.getElementById("viewsList");
+  if (!views.length) {
+    el.innerHTML = '<div class="views-empty">No saved views yet</div>';
+    return;
+  }
+  el.innerHTML = views.map((v, i) => {
+    const nSeries = v.selections.length;
+    const labels = v.selections.map(s => {
+      const parts = Object.entries(s).filter(([k]) => k !== "color").map(([, val]) => val);
+      return parts.join("·");
+    });
+    const preview = labels.join(", ");
+    return `
+      <div class="view-item">
+        <span class="view-name" onclick="loadView(${i})" title="${preview}">${v.name}</span>
+        <span class="view-meta">${nSeries}s · ${v.date || ""}</span>
+        <div class="view-actions">
+          <button class="view-action-btn" onclick="renameView(${i})" title="Rename">✎</button>
+          <button class="view-action-btn delete" onclick="deleteView(${i})" title="Delete">×</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function exportViews() {
+  const views = loadViews();
+  if (!views.length) {
+    alert("No saved views to export.");
+    return;
+  }
+  const blob = new Blob([JSON.stringify(views, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dashboard_views_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importViews() {
+  document.getElementById("importFileInput").click();
+}
+
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error("Expected array");
+      const existing = loadViews();
+      const merged = [...existing, ...imported];
+      saveViewsStore(merged);
+      if (document.getElementById("viewsPanel").classList.contains("open")) {
+        renderViewsList();
+      }
+      alert(`Imported ${imported.length} view(s).`);
+    } catch (err) {
+      alert("Invalid views file: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";  // reset so the same file can be re-imported
+}
+
 // ── CLOCK ───────────────────────────────────────────────────────────────────
 function updateClock() {
   document.getElementById('clock').textContent =
@@ -1186,6 +1402,14 @@ async function init() {
   CFG.groups.forEach(g => {
     if (g.key !== "date") SKIP_IN_TABLE.add(g.key);
   });
+
+  // restore last session's selections (if any)
+  const restored = autoRestoreSelections();
+  if (restored) {
+    console.log(`Restored ${state.selections.length} saved series`);
+    document.getElementById('btnScatter').classList.toggle('active', state.chartType === 'scatter');
+    document.getElementById('btnLine').classList.toggle('active', state.chartType === 'line');
+  }
 
   buildSidebar();
   buildColSystem(allData[0]);
