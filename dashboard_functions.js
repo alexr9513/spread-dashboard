@@ -1431,6 +1431,7 @@ async function init() {
       <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
         <b>Could not load data.json</b><br>
         Run: <span style="color:var(--muted)">python dashboard.py</span><br>
+        Run: <span style="color:var(--muted)">python -m http.server 8000</span><br>
         ${err.message}
       </div>`;
     return;
