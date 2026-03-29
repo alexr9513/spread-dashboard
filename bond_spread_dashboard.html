@@ -857,6 +857,103 @@
     font-size: 12px;
   }
   .col-tag .col-tag-x:hover { color: var(--neg); }
+
+  /* ── timeline player ── */
+  .player-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .player-bar.visible { display: flex; }
+
+  .player-btn {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .player-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .player-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,170,0.1); }
+
+  .player-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    cursor: pointer;
+  }
+  .player-progress {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.15s;
+  }
+  .player-progress::after {
+    content: '';
+    position: absolute;
+    right: -4px; top: -4px;
+    width: 12px; height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(0,212,170,0.4);
+  }
+
+  .player-date {
+    font-size: 11px;
+    color: var(--accent3);
+    min-width: 90px;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+
+  .player-counter {
+    font-size: 9px;
+    color: var(--muted);
+    min-width: 50px;
+    text-align: right;
+    letter-spacing: 0.06em;
+  }
+
+  .player-speed {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+    width: 52px;
+  }
+  .player-speed option { background: var(--surface); }
+
+  /* ── collapse toggles ── */
+  .collapse-btn {
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    transition: all 0.15s;
+  }
+  .collapse-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  .table-collapsed .bond-table-wrap { display: none; }
+  .table-collapsed .col-picker-btn { display: none; }
 </style>
 </head>
 <body>
@@ -879,7 +976,8 @@
   <div class="settings-box" id="settingsBox"></div>
 </div>
 
-<div class="layout">
+
+<div class="layout" id="mainLayout">
 
   <!-- ── SIDEBAR ── -->
   <div class="sidebar">
@@ -961,6 +1059,25 @@
         </div>
       </div>
 
+      <!-- timeline player -->
+      <div class="player-bar" id="playerBar">
+        <button class="player-btn" id="playerPrev" onclick="playerStep(-1)" title="Previous"><</button>
+        <button class="player-btn" id="playerPlayBtn" onclick="playerToggle()" title="Play/Pause">▶</button>
+        <button class="player-btn" id="playerNext" onclick="playerStep(1)" title="Next">></button>
+        <div class="player-track" onclick="playerClickTrack(event)">
+          <div class="player-progress" id="playerProgress" style="width:0%"></div>
+        </div>
+        <span class="player-date" id="playerDate">—</span>
+        <span class="player-counter" id="playerCounter">—</span>
+        <select class="player-speed" id="playerSpeed" onchange="playerSetSpeed(this.value)" title="Playback speed">
+          <option value="2000">0.5×</option>
+          <option value="1000" selected>1×</option>
+          <option value="500">2×</option>
+          <option value="250">4×</option>
+        </select>
+        <button class="player-btn" onclick="playerStop()" title="Stop">■</button>
+      </div>
+
       <div class="chart-wrap">
         <canvas id="spreadChart"></canvas>
         <div class="empty-state" id="emptyState">
@@ -969,8 +1086,9 @@
         </div>
       </div>
 
-      <div style="position:relative">
+<div style="position:relative" id="tableSection">
         <div style="display:flex;justify-content:flex-end;padding:4px 0;position:relative">
+          <button class="toggle-btn" onclick="toggleTable()" title="Toggle table" style="margin-right:8px;font-size:8px">▼ TABLE</button>
           <button class="col-picker-btn" onclick="toggleColPicker()">⊞ COLUMNS</button>
           <div class="col-picker-panel" id="colPickerPanel">
             <div class="col-picker-header">
@@ -985,12 +1103,10 @@
             <thead><tr id="tableHead"></tr></thead>
             <tbody id="bondTable"></tbody>
           </table>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
+      </div><!-- end tableSection -->
+    </div><!-- end chart-area -->
+  </div><!-- end main -->
+</div><!-- end layout -->
 
 <script src="curve_fit.js"></script>
 <script>
@@ -1225,6 +1341,12 @@ function renderChart() {
       maintainAspectRatio: false,
       animation: { duration: 300 },
       interaction: { mode: 'nearest', intersect: true },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const el = elements[0];
+        const raw = el.element.$context?.raw;
+        if (raw && raw.isin) highlightBond(raw.isin);
+      },
       plugins: {
         legend: {
           labels: {
@@ -1644,6 +1766,7 @@ function renderPreview() {
   renderStats();
   renderTable(getAllVisibleBonds());
   renderSubtitle();
+  playerShow();
 }
 
 function updateAddBtn() {
@@ -1677,6 +1800,7 @@ function removeSelection(idx) {
 
 function clearAllSelections() {
   state.selections = [];
+  playerStop();
   renderSelectionTags();
   fullRender();
 }
@@ -1685,6 +1809,12 @@ function highlightBond(isin) {
   state.highlightedISIN = state.highlightedISIN === isin ? null : isin;
   renderTable(getAllVisibleBonds());
   renderChart();
+
+  // scroll to highlighted row in the table
+  if (state.highlightedISIN) {
+    const row = document.querySelector("#bondTable tr.highlighted");
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function setChartType(type) {
@@ -1766,6 +1896,148 @@ function setFitMethod(method) {
 function setFitParam(key, value) {
   state.fitCfg[key] = value;
   if (state.chartType === 'line') renderChart();
+}
+
+// ── TIMELINE PLAYER ──────────────────────────────────────────────────────────
+// Animates through dates for the current issuer/type picker state.
+// Shows the spread curve evolving over time.
+
+let player = {
+  active: false,
+  playing: false,
+  dates: [],
+  index: 0,
+  interval: null,
+  speed: 1000,
+  // snapshot of picker state (minus date) when playback started
+  baseSelection: null,
+};
+
+function playerGetDates() {
+  // find the date group
+  const dateGroup = CFG.groups.find(g => g.is_last);
+  if (!dateGroup) return [];
+
+  // get available dates given current picker state (all groups except date must be set)
+  const dateIdx = CFG.groups.indexOf(dateGroup);
+  for (let j = 0; j < dateIdx; j++) {
+    if (state.picker[CFG.groups[j].key] == null) return [];
+  }
+  return getGroupValues(dateIdx).sort();
+}
+
+function playerShow() {
+  const dates = playerGetDates();
+  const bar = document.getElementById("playerBar");
+  if (dates.length < 2) {
+    bar.classList.remove("visible");
+    return;
+  }
+  bar.classList.add("visible");
+  player.dates = dates;
+  if (!player.active) {
+    player.index = dates.length - 1; // start at latest
+    playerUpdateUI();
+  }
+}
+
+function playerHide() {
+  document.getElementById("playerBar").classList.remove("visible");
+  playerPause();
+}
+
+function playerUpdateUI() {
+  const d = player.dates;
+  if (!d.length) return;
+  const i = player.index;
+  const pct = d.length > 1 ? (i / (d.length - 1)) * 100 : 100;
+  document.getElementById("playerProgress").style.width = pct + "%";
+  document.getElementById("playerDate").textContent = d[i] || "—";
+  document.getElementById("playerCounter").textContent = `${i + 1}/${d.length}`;
+  document.getElementById("playerPlayBtn").textContent = player.playing ? "❚❚" : "▶";
+  document.getElementById("playerPlayBtn").classList.toggle("active", player.playing);
+}
+
+function playerGoTo(index) {
+  if (!player.dates.length) return;
+  player.index = Math.max(0, Math.min(index, player.dates.length - 1));
+  player.active = true;
+
+  // update the date picker to this date
+  const dateGroup = CFG.groups.find(g => g.is_last);
+  if (dateGroup) {
+    state.picker[dateGroup.key] = player.dates[player.index];
+    renderAllGroupSteps();
+    updateAddBtn();
+    renderPreview();
+  }
+  playerUpdateUI();
+}
+
+function playerStep(dir) {
+  playerGoTo(player.index + dir);
+}
+
+function playerToggle() {
+  if (player.playing) {
+    playerPause();
+  } else {
+    playerPlay();
+  }
+}
+
+function playerPlay() {
+  if (!player.dates.length) return;
+  player.playing = true;
+  player.active = true;
+  // if at the end, restart from beginning
+  if (player.index >= player.dates.length - 1) player.index = 0;
+  playerGoTo(player.index);
+  playerUpdateUI();
+
+  player.interval = setInterval(() => {
+    if (player.index >= player.dates.length - 1) {
+      playerPause();
+      return;
+    }
+    playerGoTo(player.index + 1);
+  }, player.speed);
+}
+
+function playerPause() {
+  player.playing = false;
+  if (player.interval) { clearInterval(player.interval); player.interval = null; }
+  playerUpdateUI();
+}
+
+function playerStop() {
+  playerPause();
+  player.active = false;
+  player.index = player.dates.length - 1;
+  playerGoTo(player.index);
+}
+
+function playerSetSpeed(ms) {
+  player.speed = +ms;
+  if (player.playing) {
+    playerPause();
+    playerPlay();
+  }
+}
+
+function playerClickTrack(e) {
+  if (!player.dates.length) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const idx = Math.round(pct * (player.dates.length - 1));
+  playerGoTo(idx);
+}
+
+// ── COLLAPSE TOGGLES ─────────────────────────────────────────────────────────
+
+function toggleTable() {
+  const section = document.getElementById("tableSection");
+  section.classList.toggle("table-collapsed");
 }
 
 // ── SETTINGS SYSTEM ───────────────────────────────────────────────────────────

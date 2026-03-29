@@ -207,6 +207,16 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     "Total Capital Ratio CIQ", "Total Employees CIQ", "SP Price Target CIQ",
     "SP Price Close CIQ", "SP Est 5Y EPS Gr CIQ", "EPS Med NTM 0",
     "EPS Revision Ratio", "Daily Vol 260J",
+    "key_isin_date", "FileDate", "UniverseDate", "YearMonth", "MaturityYear", "TTM",
+    "CIQ_ID", "Company SEDOL", "Cusip", "Source data",
+    "Prior Month-End % Weight", "Prior Month-End Accrued Interest",
+    "Prior Month-End Asset Swap Spread", "Prior Month-End Duration To Worst",
+    "Prior Month-End Effective Duration", "Prior Month-End Effective Yield",
+    "Prior Month-End OAS vs Govt", "Prior Month-End OAS vs Swap",
+    "Prior Month-End Price", "Prior Month-End Yield To Worst",
+    "durationbucket", "BucketSub", "RatingClass", "RatingGroup",
+    "Cash", "Face Value", "Currency", "Accrued Interest",
+    "Excess Rtn % MTD", "TRR % MTD LOC", "Subordonnee_dummy",
     ]
     df.drop(columns=[col for col in FUNDAMENTAL_COLS if col in df.columns], inplace=True)
 
