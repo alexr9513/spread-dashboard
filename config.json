@@ -11,11 +11,11 @@
     "  5. Open the dashboard and click ⚙ SETTINGS to configure filters"
   ],
 
-  "input_file": "data\\Base_EUR_HY_v3.parquet",
+  "input_file": "data\\GFIM_EUR_HY.parquet",
 
   "columns_essential": {
     "bond_id": {
-      "your_column": "Cusip",
+      "your_column": "ISIN",
       "dashboard_key": "isin",
       "description": "Unique bond identifier"
     },

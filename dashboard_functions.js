@@ -259,12 +259,14 @@ function renderChart() {
       scales: {
         x: {
           type: 'linear',
+          ...(player.axisLock ? { min: player.axisLock.xMin, max: player.axisLock.xMax } : {}),
           title: { display: true, text: xl.toUpperCase(), color: '#4e5a6a',
                    font: { family: 'IBM Plex Mono', size: 9 }, padding: { top: 8 } },
           grid:  { color: 'rgba(30,35,41,0.8)', lineWidth: 1 },
           ticks: { color: '#4e5a6a', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10 },
         },
         y: {
+          ...(player.axisLock ? { min: player.axisLock.yMin, max: player.axisLock.yMax } : {}),
           title: { display: true, text: yl.toUpperCase(), color: '#4e5a6a',
                    font: { family: 'IBM Plex Mono', size: 9 }, padding: { bottom: 8 } },
           grid:  { color: 'rgba(30,35,41,0.8)', lineWidth: 1 },
@@ -747,6 +749,7 @@ let player = {
   index: 0,
   interval: null,
   speed: 1000,
+  axisLock: null,  // { xMin, xMax, yMin, yMax } when locked during playback
 };
 
 function playerGetDates() {
@@ -808,6 +811,7 @@ function playerGoTo(index) {
 }
 
 function playerStep(dir) {
+  if (!player.axisLock) player.axisLock = computeAxisLock();
   playerGoTo(player.index + dir);
 }
 
@@ -816,10 +820,51 @@ function playerToggle() {
   else                playerPlay();
 }
 
+function computeAxisLock() {
+  // compute global min/max across ALL dates for the current picker (minus date)
+  const dateGroup = CFG.groups.find(g => g.is_last);
+  if (!dateGroup || !player.dates.length) return null;
+
+  const xF = state.xField;
+  const yF = state.yField;
+
+  // build a "selector" from current picker, minus the date key
+  const baseSel = {};
+  CFG.groups.forEach(g => {
+    if (g.key !== dateGroup.key) baseSel[g.key] = state.picker[g.key];
+  });
+
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+
+  for (const d of player.dates) {
+    const sel = { ...baseSel, [dateGroup.key]: d };
+    const bonds = getBondsForSelection(sel);
+    for (const b of bonds) {
+      const x = getBondValue(b, xF);
+      const y = getBondValue(b, yF);
+      if (x != null && isFinite(x)) { xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); }
+      if (y != null && isFinite(y)) { yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
+    }
+  }
+
+  if (!isFinite(xMin)) return null;
+
+  // add 5% padding
+  const xPad = (xMax - xMin) * 0.05 || 1;
+  const yPad = (yMax - yMin) * 0.05 || 10;
+  return {
+    xMin: xMin - xPad,
+    xMax: xMax + xPad,
+    yMin: yMin - yPad,
+    yMax: yMax + yPad,
+  };
+}
+
 function playerPlay() {
   if (!player.dates.length) return;
   player.playing = true;
   player.active = true;
+  player.axisLock = computeAxisLock();
   if (player.index >= player.dates.length - 1) player.index = 0;
   playerGoTo(player.index);
   playerUpdateUI();
@@ -842,6 +887,7 @@ function playerPause() {
 function playerStop() {
   playerPause();
   player.active = false;
+  player.axisLock = null;
   player.index = player.dates.length - 1;
   playerGoTo(player.index);
 }
@@ -856,6 +902,7 @@ function playerSetSpeed(ms) {
 
 function playerClickTrack(e) {
   if (!player.dates.length) return;
+  if (!player.axisLock) player.axisLock = computeAxisLock();
   const rect = e.currentTarget.getBoundingClientRect();
   const pct = (e.clientX - rect.left) / rect.width;
   const idx = Math.round(pct * (player.dates.length - 1));
@@ -1241,6 +1288,12 @@ function loadView(idx) {
   }
 
   state.selections = valid;
+
+  // force-clear picker so no preview shows — user clicks sidebar to get it back
+  state.picker = {};
+  CFG.groups.forEach(g => { state.picker[g.key] = null; });
+  renderAllGroupSteps();
+
   if (v.chartType) {
     state.chartType = v.chartType;
     document.getElementById('btnScatter').classList.toggle('active', v.chartType === 'scatter');

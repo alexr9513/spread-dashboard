@@ -130,6 +130,7 @@
         <button class="player-btn" id="playerPrev" onclick="playerStep(-1)" title="Previous"><</button>
         <button class="player-btn" id="playerPlayBtn" onclick="playerToggle()" title="Play/Pause">▶</button>
         <button class="player-btn" id="playerNext" onclick="playerStep(1)" title="Next">></button>
+        <button class="player-btn" onclick="playerStop()" title="Stop">■</button>
         <div class="player-track" onclick="playerClickTrack(event)">
           <div class="player-progress" id="playerProgress" style="width:0%"></div>
         </div>
@@ -141,7 +142,6 @@
           <option value="500">2×</option>
           <option value="250">4×</option>
         </select>
-        <button class="player-btn" onclick="playerStop()" title="Stop">■</button>
       </div>
 
       <div class="chart-wrap">
