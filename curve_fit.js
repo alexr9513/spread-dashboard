@@ -1,7 +1,7 @@
 /**
  * curve_fit.js
  * ============
- * Pi² — Bond Spread Dashboard | Curve Fitting & Chart Utilities
+ * Bond Spread Dashboard | Curve Fitting & Chart Utilities
  *
  * Five fitting modes, selectable at runtime:
  *

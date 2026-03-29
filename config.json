@@ -11,7 +11,7 @@
     "  5. Open the dashboard and click ⚙ SETTINGS to configure filters"
   ],
 
-  "input_file": "Base_EUR_HY_v3.parquet",
+  "input_file": "data\\Base_EUR_HY_v3.parquet",
 
   "columns_essential": {
     "bond_id": {
