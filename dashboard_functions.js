@@ -252,6 +252,23 @@ function renderChart() {
             filter: item => !item.text.startsWith('_'),
           }
         },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true, speed: 0.08 },
+            pinch: { enabled: true },
+            mode: 'xy',
+            onZoom: () => document.getElementById('btnResetZoom').style.display = '',
+          },
+          pan: {
+            enabled: true,
+            mode: 'xy',
+            onPan: () => document.getElementById('btnResetZoom').style.display = '',
+          },
+          limits: {
+            x: { min: 'original', max: 'original', minRange: 0.25 },
+            y: { min: 'original', max: 'original', minRange: 5 },
+          },
+        },
         tooltip: {
           backgroundColor: '#111418',
           borderColor: '#2a313b', borderWidth: 1,
@@ -429,9 +446,10 @@ function renderStats() {
   }
   const oas  = all.map(b => b.oas).filter(v => v != null);
   const ttms = all.map(b => b.ttm).filter(v => v != null);
-  const issuers = [...new Set(all.map(b => b.ticker))];
+  const tickerKey = CFG.groups.find(g => g.searchable)?.key || 'ticker';
+  const issuers = [...new Set(all.map(b => b[tickerKey]).filter(Boolean))];
   document.getElementById('statIssuer').textContent =
-    issuers.length === 1 ? issuers[0] : `${issuers.length} issuers`;
+    issuers.length === 1 ? issuers[0] : issuers.length ? `${issuers.length} issuers` : '—';
   document.getElementById('statBonds').textContent  = new Set(all.map(b => b.isin)).size;
   document.getElementById('statAvgOas').textContent =
     Math.round(oas.reduce((a,b)=>a+b,0)/oas.length);
@@ -690,6 +708,11 @@ function highlightBond(isin) {
     const row = document.querySelector("#bondTable tr.highlighted");
     if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+}
+
+function resetChartZoom() {
+  if (chart) chart.resetZoom();
+  document.getElementById('btnResetZoom').style.display = 'none';
 }
 
 function setChartType(type) {
@@ -1292,6 +1315,8 @@ function promptSaveView() {
     xField: state.xField,
     yField: state.yField,
     fitCfg: { ...state.fitCfg },
+    picker: { ...state.picker },
+    datasetSig: getDatasetSig(),
   });
   saveViewsStore(views);
 
@@ -1299,6 +1324,11 @@ function promptSaveView() {
   if (document.getElementById("viewsPanel").classList.contains("open")) {
     renderViewsList();
   }
+}
+
+function getDatasetSig() {
+  if (!allData.length) return '';
+  return Object.keys(allData[0]).sort().join(',');
 }
 
 function loadView(idx) {
@@ -1318,9 +1348,14 @@ function loadView(idx) {
 
   state.selections = valid;
 
-  // force-clear picker so no preview shows — user clicks sidebar to get it back
-  state.picker = {};
-  CFG.groups.forEach(g => { state.picker[g.key] = null; });
+  // restore picker filters only if dataset matches
+  const sameDataset = v.datasetSig && v.datasetSig === getDatasetSig();
+  if (sameDataset && v.picker) {
+    state.picker = { ...v.picker };
+  } else {
+    state.picker = {};
+    CFG.groups.forEach(g => { state.picker[g.key] = null; });
+  }
   renderAllGroupSteps();
 
   if (v.chartType) {
@@ -1515,9 +1550,12 @@ const FILE_LOADER_FIELDS = [
 ];
 
 function showFileLoader() {
+  _rawFileData = null;
+  _rawColumns  = [];
   const overlay = document.getElementById('fileLoaderOverlay');
   overlay.style.display = 'flex';
   document.getElementById('colMapper').style.display = 'none';
+  document.getElementById('colMapGrid').innerHTML = '';
   document.getElementById('fileLoaderStatus').textContent = '';
   setupDropZone();
 }
