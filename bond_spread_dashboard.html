@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spread Curve Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2/dist/chartjs-plugin-zoom.min.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,6 +17,7 @@
   </div>
   <div class="header-right">
     <div class="live-dot"></div>
+    <button class="help-btn" onclick="showFileLoader()" title="Load a data file">⬆ LOAD FILE</button>
     <button class="help-btn" onclick="openSettings()" title="Configure filters & columns">⚙ SETTINGS</button>
     <a class="help-btn" href="user_guide.html" target="_blank" title="How to use the dashboard">? HELP</a>
     <a class="help-btn" href="fitting_guide.html" target="_blank" title="Curve fitting reference">? FITTING</a>
@@ -106,6 +109,7 @@
             <button class="toggle-btn active" id="btnScatter" onclick="setChartType('scatter')">SCATTER</button>
             <button class="toggle-btn" id="btnLine" onclick="setChartType('line')">FIT CURVE</button>
             <button class="toggle-btn" id="btnFitSettings" onclick="toggleFitPanel()" title="Fitting settings">⚙</button>
+            <button class="toggle-btn" id="btnResetZoom" onclick="resetChartZoom()" title="Reset zoom / pan" style="display:none">↺ ZOOM</button>
             <div class="fit-panel" id="fitPanel"></div>
           </div>
           <div style="display:flex;gap:12px">
@@ -174,6 +178,35 @@
     </div><!-- end chart-area -->
   </div><!-- end main -->
 </div><!-- end layout -->
+
+<!-- ── FILE LOADER OVERLAY ── -->
+<div class="file-loader-overlay" id="fileLoaderOverlay" style="display:none">
+  <div class="file-loader-box">
+    <button class="file-loader-close" onclick="hideFileLoader()" title="Close">×</button>
+    <div class="file-loader-title">LOAD DATA FILE</div>
+    <div class="file-loader-subtitle">Select or drop a .parquet, .csv, or .xlsx file to get started</div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileLoaderInput').click()">
+      <div class="drop-icon">◈</div>
+      <div class="drop-text">DROP FILE HERE</div>
+      <div class="drop-sub">.parquet &nbsp;·&nbsp; .csv &nbsp;·&nbsp; .xlsx &nbsp;·&nbsp; .xls</div>
+      <button class="drop-btn" onclick="event.stopPropagation();document.getElementById('fileLoaderInput').click()">BROWSE FILE</button>
+    </div>
+    <input type="file" id="fileLoaderInput" accept=".parquet,.csv,.xlsx,.xls" style="display:none" onchange="handleFileInputChange(event)">
+
+    <!-- Column mapper — shown after a file is read -->
+    <div id="colMapper" style="display:none">
+      <div class="col-map-title">MAP YOUR COLUMNS</div>
+      <div class="col-map-subtitle">Match your file columns to the four required fields</div>
+      <div class="col-map-grid" id="colMapGrid"></div>
+      <div style="text-align:center;margin-top:20px">
+        <button class="load-data-btn" onclick="confirmLoadData()">LOAD DATA</button>
+      </div>
+    </div>
+
+    <div id="fileLoaderStatus" style="margin-top:14px;font-size:10px;color:var(--muted);text-align:center;min-height:16px"></div>
+  </div>
+</div>
 
 <script src="curve_fit.js"></script>
 <script src="dashboard_functions.js"></script>

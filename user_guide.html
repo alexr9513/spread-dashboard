@@ -176,6 +176,21 @@
   }
   .file-tree .f { color: var(--text); }
   .file-tree .c { color: var(--muted); font-size: 10px; }
+
+  .steps-list {
+    list-style: none; padding: 0; margin: 16px 0;
+  }
+  .steps-list li {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .steps-list li:last-child { border-bottom: none; }
+  .steps-list .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--accent); font-weight: 600;
+    min-width: 20px; padding-top: 2px;
+  }
 </style>
 </head>
 <body>
@@ -198,55 +213,72 @@
 <h2><span class="step-num">1</span> Setup</h2>
 <div class="card">
 
-  <h3>Files</h3>
-  <div class="file-tree">
-    <span class="f">config.json</span> <span class="c">← map your 4 essential columns here</span><br>
-    <span class="f">dashboard.py</span> <span class="c">← run this to generate data.json</span><br>
-  </div>
-
-  <h3>First-time setup</h3>
+  <h3>No installation required</h3>
   <p>
-    <strong>1.</strong> Install Python dependencies:
+    The dashboard runs entirely in your browser. Simply open <code>bond_spread_dashboard.html</code> by
+    double-clicking it — no Python, no server, no configuration files needed.
+    Just load your data file when the overlay appears.
   </p>
-  <div class="cmd-block">
-    <span class="prompt">$</span> pip install pandas pyarrow
-  </div>
 
-  <p>
-    <strong>2.</strong> Open <code>config.json</code> and set 2 things:
-  </p>
+  <h3>Supported file types</h3>
   <table class="ref-table">
+    <thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td>input_file</td><td>Path to your data file (<code>.parquet</code>, <code>.csv</code>, or <code>.xlsx</code>)</td></tr>
-      <tr><td>columns_essential</td><td>Map your column names to the 4 required fields: bond ID, spread, maturity date, snapshot date</td></tr>
+      <tr><td>Parquet</td><td>.parquet</td><td>Recommended for large datasets — fast and compact</td></tr>
+      <tr><td>Excel</td><td>.xlsx / .xls</td><td>First sheet is used</td></tr>
+      <tr><td>CSV</td><td>.csv</td><td>Comma-separated; headers required</td></tr>
     </tbody>
   </table>
 
-  <p>
-    <strong>3.</strong> Run the export script:
-  </p>
-  <div class="cmd-block">
-    <span class="prompt">$</span> python dashboard.py
-  </div>
-
-  <p>
-    <strong>4.</strong> Start a local web server:
-  </p>
-  <div class="cmd-block">
-    <span class="prompt">$</span> python -m http.server 8000
-  </div>
-
-  <p>
-    <strong>5.</strong> Open in your browser:
-  </p>
-  <div class="cmd-block">
-    http://localhost:8000/bond_spread_dashboard.html
-  </div>
+  <h3>Starting the dashboard</h3>
+  <ul class="steps-list">
+    <li>
+      <span class="num">1</span>
+      <div>
+        Double-click <code>bond_spread_dashboard.html</code> to open it in your browser.
+        That's it — no server needed.
+      </div>
+    </li>
+    <li>
+      <span class="num">2</span>
+      <div>
+        The <strong>Load Data File</strong> overlay opens automatically on first launch (or whenever no data has been loaded yet).
+        Drop your file onto the drop zone or click <span class="tag green">BROWSE FILE</span>.
+      </div>
+    </li>
+    <li>
+      <span class="num">3</span>
+      <div>
+        After the file is read, a <strong>column mapping</strong> step appears.
+        Match your file's columns to the four required fields:
+        <table class="ref-table" style="margin-top:10px">
+          <thead><tr><th>Required field</th><th>What it expects</th></tr></thead>
+          <tbody>
+            <tr><td>Bond ID</td><td>Unique bond identifier (ISIN, CUSIP, ticker, etc.)</td></tr>
+            <tr><td>Spread (bps)</td><td>Numeric spread in basis points (OAS, Z-spread, G-spread, etc.)</td></tr>
+            <tr><td>Maturity Date</td><td>Bond maturity date (any standard date format)</td></tr>
+            <tr><td>Snapshot Date</td><td>Date of the data observation / pricing date</td></tr>
+          </tbody>
+        </table>
+        Common column names are detected automatically — check the pre-selected values and adjust if needed.
+      </div>
+    </li>
+    <li>
+      <span class="num">4</span>
+      <div>Click <span class="tag green">LOAD DATA</span>. The dashboard builds itself from your data.</div>
+    </li>
+  </ul>
 
   <div class="tip">
-    <strong>Updating data</strong><br>
-    When your data changes, just re-run <code>python dashboard.py</code> and hard-refresh the browser
-    (<span class="key">Ctrl</span> + <span class="key">Shift</span> + <span class="key">R</span>).
+    <strong>Switching datasets</strong><br>
+    Click <span class="tag green">⬆ LOAD FILE</span> in the header at any time to load a different file.
+    The overlay resets fully each time — column mappings are never carried over from a previous session.
+  </div>
+
+  <div class="warn">
+    <strong>Internet connection required</strong><br>
+    The dashboard loads Chart.js, SheetJS, and the Parquet reader from CDN on first open.
+    Once cached by your browser, it works offline.
   </div>
 </div>
 
@@ -257,7 +289,7 @@
 <div class="card">
   <p>
     Click <span class="tag blue">⚙ SETTINGS</span> in the top-right corner to configure the dashboard.
-    Changes are saved in your browser and persist across refreshes. No need to edit config files or re-run Python.
+    Changes are saved in your browser and persist across refreshes.
   </p>
 
   <h3>Sidebar filters</h3>
@@ -270,7 +302,7 @@
     <tbody>
       <tr><td>Search list</td><td>Search box + scrollable list with counts</td><td>Columns with many values (issuers, tickers)</td></tr>
       <tr><td>Pills</td><td>Clickable buttons in a row</td><td>Columns with few values (bond type, rating bucket)</td></tr>
-      <tr><td>Date list</td><td>Scrollable list + ADD TO CHART button</td><td>Date columns (always put this last)</td></tr>
+      <tr><td>Date list</td><td>Scrollable list + ADD TO CHART button</td><td>Date columns — always put this last</td></tr>
     </tbody>
   </table>
   <p>
@@ -278,7 +310,7 @@
     The <strong>All</strong> checkbox adds an "All" option that skips filtering on that step.
   </p>
   <div class="warn">
-    <strong>Important</strong><br>
+    <strong>Filter order matters</strong><br>
     Filters cascade: each step narrows the next. Put broad categories first (bond type, sector)
     and specific ones later (issuer, date). The last filter should always be a date list —
     it gets the ADD TO CHART button.
@@ -287,7 +319,7 @@
   <h3>Chart axes</h3>
   <p>
     Check which numeric columns appear in the X / Y axis selectors on the chart.
-    TTM (time to maturity) and OAS (spread) are always available.
+    TTM (time to maturity) and the mapped spread column are always available.
   </p>
 
   <h3>Apply & Reset</h3>
@@ -324,32 +356,41 @@
     </tbody>
   </table>
   <p>
-    The X and Y axis selectors let you switch between TTM, Duration, Yield, or any numeric column
+    The X and Y axis selectors let you switch between TTM, duration, yield, or any numeric column
     you enabled in settings.
+  </p>
+
+  <h3>Zooming and panning</h3>
+  <p>
+    <strong>Scroll wheel</strong> zooms in and out on both axes simultaneously.
+    <strong>Click and drag</strong> pans the chart in any direction.
+  </p>
+  <p>
+    A <span class="tag blue">↺ ZOOM</span> button appears in the chart controls as soon as you zoom or pan.
+    Click it to snap back to the original full view. The zoom resets automatically whenever the chart
+    is re-rendered (e.g. when adding or removing a series).
   </p>
 
   <h3>Interacting with the chart</h3>
   <p>
-    <strong>Hover</strong> over a dot to see its ISIN, X value, and Y value in a tooltip.
+    <strong>Hover</strong> over a dot to see its identifier, X value, and Y value in a tooltip.
   </p>
   <p>
-    <strong>Click a row</strong> in the bottom table to highlight that bond on the chart (bigger dot, white fill).
+    <strong>Click a row</strong> in the bottom table to highlight that bond on the chart (larger dot, white fill).
     Click again to un-highlight.
   </p>
 
   <h3>Bottom table</h3>
   <p>
-    The table shows all bonds for the current selection(s). Columns are sorted by TTM.
-  </p>
-  <p>
-    Click <span class="tag blue">⊞ COLUMNS</span> to show/hide columns. All columns from your dataset
-    are available — check the ones you want to see.
+    The table shows all bonds for the current selection(s), sorted by TTM.
+    Click <span class="tag blue">⊞ COLUMNS</span> to show or hide individual columns.
+    All columns from your dataset are available.
   </p>
 
   <h3>Stat bar</h3>
   <p>
     The bar at the top of the main panel shows summary statistics for the currently visible bonds:
-    issuer name (or count if multiple), unique bond count, average / min / max OAS, and average maturity.
+    issuer name (or count if multiple), unique bond count, average / min / max spread, and average maturity.
   </p>
 
   <h3>Active series</h3>
@@ -360,9 +401,48 @@
 </div>
 
 
+<!-- ── SAVED VIEWS ──────────────────────────────────────────── -->
+
+<h2><span class="step-num">4</span> Saved Views</h2>
+<div class="card">
+  <p>
+    A <strong>saved view</strong> captures everything about your current chart state: the active series,
+    chart type, axis selection, curve fitting settings, and the current sidebar filter selections.
+  </p>
+
+  <h3>Saving a view</h3>
+  <p>
+    Click <span class="tag blue">💾 SAVE</span> in the sidebar and give the view a name.
+    The view is stored in your browser's localStorage.
+  </p>
+
+  <h3>Loading a view</h3>
+  <p>
+    Click <span class="tag blue">📂 VIEWS</span> to open the saved views panel, then click a view name.
+    The series and chart settings are always restored. The <strong>sidebar filters</strong> (which issuer,
+    type, date were selected) are also restored automatically — but only if the currently loaded dataset
+    is the same one the view was saved with. If you load a different file, only the series are restored
+    and the filters reset to defaults.
+  </p>
+
+  <h3>Exporting and importing views</h3>
+  <p>
+    Use <span class="tag">↓</span> to export all saved views to a <code>.json</code> file and
+    <span class="tag">↑</span> to import them back. This lets you share views between machines
+    or back them up.
+  </p>
+
+  <div class="warn">
+    <strong>Views are browser-local</strong><br>
+    Views are stored in localStorage and are not shared between browsers or devices unless
+    you export and import the JSON file.
+  </div>
+</div>
+
+
 <!-- ── CURVE FITTING ────────────────────────────────────────── -->
 
-<h2><span class="step-num">4</span> Curve Fitting</h2>
+<h2><span class="step-num">5</span> Curve Fitting</h2>
 <div class="card">
   <p>
     Click <span class="tag blue">FIT CURVE</span> to fit a spread curve, then click the <span class="tag">⚙</span> gear icon
@@ -387,46 +467,15 @@
 
   <div class="tip">
     <strong>Detailed reference</strong><br>
-    Click <span class="tag yellow">? GUIDE</span> in the header for the full mathematical reference
+    Click <span class="tag yellow">? FITTING</span> in the header for the full mathematical reference
     with formulas, parameter tables, and RMSE benchmarks.
   </div>
 </div>
 
 
-<!-- ── PREPROCESSING ────────────────────────────────────────── -->
+<!-- ── TIPS ─────────────────────────────────────────────────── -->
 
-<h2><span class="step-num">5</span> Data Preprocessing</h2>
-<div class="card">
-  <p>
-    If you need to clean or transform your data before it reaches the dashboard, open
-    <code>dashboard.py</code> and edit the <code>preprocess()</code> function. It receives the raw
-    DataFrame with original column names and returns the cleaned version.
-  </p>
-
-  <p>Common examples:</p>
-  <div class="cmd-block" style="color:var(--text);line-height:1.8">
-    <span style="color:var(--muted)"># Filter to EUR only</span><br>
-    df = df[df["Currency"] == "EUR"]<br><br>
-    <span style="color:var(--muted)"># Drop columns you don't need</span><br>
-    df = df.drop(columns=["col_a", "col_b"])<br><br>
-    <span style="color:var(--muted)"># Clean a text column</span><br>
-    df["Rating"] = df["Rating"].str.strip().str.upper()<br><br>
-    <span style="color:var(--muted)"># Clip negative spreads</span><br>
-    df["OAS vs Govt"] = df["OAS vs Govt"].clip(lower=0)<br><br>
-    <span style="color:var(--muted)"># Create a derived column</span><br>
-    df["Bucket"] = pd.cut(df["OAS vs Govt"], bins=[0,200,400,800,9999],<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;labels=["Tight","Mid","Wide","Distressed"])
-  </div>
-
-  <p>
-    After editing, re-run <code>python dashboard.py</code> and refresh the browser.
-  </p>
-</div>
-
-
-<!-- ── KEYBOARD ─────────────────────────────────────────────── -->
-
-<h2><span class="step-num">6</span> Tips</h2>
+<h2><span class="step-num">7</span> Tips</h2>
 <div class="card">
   <p>
     <strong>Compare issuers:</strong> Add issuer A on date X, then add issuer B on the same date.
@@ -439,6 +488,7 @@
   <p>
     <strong>Spot cheap/rich bonds:</strong> Switch to FIT CURVE mode. Bonds above the curve
     (positive residual) trade wider than peers → potentially cheap. Bonds below → potentially rich.
+    Use scroll wheel to zoom into the area of interest.
   </p>
   <p>
     <strong>Senior vs Sub:</strong> If your data has a type column, add it as a pills filter in settings.
@@ -452,9 +502,8 @@
     Only check the ones you actually want as X/Y options.
   </p>
   <p>
-    <strong>Browser data:</strong> Your filter and axis settings are stored in your browser's localStorage.
-    Clearing browser data or using a different browser resets to defaults.
-    Your bond data in <code>data.json</code> is never modified.
+    <strong>Browser data:</strong> Your filter settings, axis configuration, and saved views are stored
+    in your browser's localStorage. Clearing browser data resets everything to defaults.
   </p>
 </div>
 

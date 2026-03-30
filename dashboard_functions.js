@@ -82,51 +82,69 @@ function setAxis(axis, field) {
 
 // ── DERIVED — all config-driven ─────────────────────────────────────────────
 
-function getGroupValues(groupIdx) {
+// Returns { values, countMap } for a filter group in a single allData pass.
+// countMap: Map(value → bond count), used by renderGroupStep to show counts without
+// calling countBondsForValue() once per option (which was O(N×options) over allData).
+function getGroupData(groupIdx) {
   const groups = CFG.groups;
   let bonds = allData;
 
   for (let j = 0; j < groupIdx; j++) {
     const g   = groups[j];
     const val = state.picker[g.key];
-    if (val == null) return [];
+    if (val == null) return { values: [], countMap: new Map() };
     if (g.all_option && val === g.default) continue;
     bonds = bonds.filter(b => b[g.key] === val);
   }
 
-  const g   = groups[groupIdx];
-  const set = new Set(bonds.map(b => b[g.key]));
-  let vals  = [...set];
+  const g = groups[groupIdx];
 
+  // For searchable groups count unique ISINs per value (mirrors old countBondsForValue logic)
+  let countMap;
+  if (g.searchable) {
+    const isinSets = new Map();
+    for (const b of bonds) {
+      const v = b[g.key];
+      if (!isinSets.has(v)) isinSets.set(v, new Set());
+      isinSets.get(v).add(b.isin);
+    }
+    countMap = new Map([...isinSets.entries()].map(([v, s]) => [v, s.size]));
+  } else {
+    countMap = new Map();
+    for (const b of bonds) {
+      const v = b[g.key];
+      countMap.set(v, (countMap.get(v) || 0) + 1);
+    }
+  }
+
+  let vals = [...countMap.keys()];
   if (g.sort === "desc") vals = vals.sort().reverse();
   else if (g.sort === "asc") vals = vals.sort();
   else vals = vals.sort((a, b) => typeof a === "string" ? a.localeCompare(b) : a - b);
 
   if (g.all_option) vals = [g.default, ...vals.filter(v => v !== g.default)];
-  return vals;
+  return { values: vals, countMap };
 }
 
-function countBondsForValue(groupIdx, value) {
-  const groups = CFG.groups;
-  let bonds = allData;
-  for (let j = 0; j <= groupIdx; j++) {
-    const g   = groups[j];
-    const val = j === groupIdx ? value : state.picker[g.key];
-    if (g.all_option && val === g.default) continue;
-    if (val != null) bonds = bonds.filter(b => b[g.key] === val);
-  }
-  if (CFG.groups[groupIdx].searchable) return new Set(bonds.map(b => b.isin)).size;
-  return bonds.length;
+function getGroupValues(groupIdx) {
+  return getGroupData(groupIdx).values;
 }
+
+// Cache filtered bond arrays by selection key — allData never changes so entries are
+// permanently valid. Avoids re-filtering the same 300k rows on every render call.
+const _selCache = new Map();
 
 function getBondsForSelection(sel) {
+  const key = CFG.groups.map(g => String(sel[g.key])).join('\x00');
+  if (_selCache.has(key)) return _selCache.get(key);
   let bonds = allData;
   for (const g of CFG.groups) {
     const val = sel[g.key];
     if (g.all_option && val === g.default) continue;
     if (val != null) bonds = bonds.filter(b => b[g.key] === val);
   }
-  return bonds.map(b => ({ ...b, ttm: getTTM(b.maturity, b.date) }));
+  _selCache.set(key, bonds);
+  return bonds;
 }
 
 function getAllActiveBonds() {
@@ -217,7 +235,7 @@ function renderChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 300 },
+      animation: false,
       interaction: { mode: 'nearest', intersect: true },
       onClick: (evt, elements) => {
         if (!elements.length) return;
@@ -233,6 +251,23 @@ function renderChart() {
             boxWidth: 8, padding: 16,
             filter: item => !item.text.startsWith('_'),
           }
+        },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true, speed: 0.08 },
+            pinch: { enabled: true },
+            mode: 'xy',
+            onZoom: () => document.getElementById('btnResetZoom').style.display = '',
+          },
+          pan: {
+            enabled: true,
+            mode: 'xy',
+            onPan: () => document.getElementById('btnResetZoom').style.display = '',
+          },
+          limits: {
+            x: { min: 'original', max: 'original', minRange: 0.25 },
+            y: { min: 'original', max: 'original', minRange: 5 },
+          },
         },
         tooltip: {
           backgroundColor: '#111418',
@@ -336,7 +371,7 @@ function renderGroupStep(groupIdx, filter = "") {
   const el     = document.getElementById(`groupList_${g.key}`);
   if (!el) return;
 
-  const values = getGroupValues(groupIdx);
+  const { values, countMap } = getGroupData(groupIdx);
   const isLast = !!g.is_last;
 
   if (!values.length) {
@@ -350,7 +385,7 @@ function renderGroupStep(groupIdx, filter = "") {
       String(v).toLowerCase().includes(filter.toLowerCase())
     );
     el.innerHTML = filtered.map(v => {
-      const count = countBondsForValue(groupIdx, v);
+      const count = countMap.get(v) ?? 0;
       return `
         <div class="issuer-item ${state.picker[g.key] === v ? "active" : ""}"
              onclick="pickGroupValue(${groupIdx}, '${String(v).replace(/'/g, "\\'")}')">
@@ -363,7 +398,7 @@ function renderGroupStep(groupIdx, filter = "") {
 
   if (isLast) {
     el.innerHTML = values.map(v => {
-      const n = g.show_count ? countBondsForValue(groupIdx, v) : null;
+      const n = g.show_count ? (countMap.get(v) ?? 0) : null;
       return `
         <div class="date-item ${state.picker[g.key] === v ? "active" : ""}"
              onclick="pickGroupValue(${groupIdx}, '${String(v).replace(/'/g, "\\'")}')">
@@ -411,9 +446,10 @@ function renderStats() {
   }
   const oas  = all.map(b => b.oas).filter(v => v != null);
   const ttms = all.map(b => b.ttm).filter(v => v != null);
-  const issuers = [...new Set(all.map(b => b.ticker))];
+  const tickerKey = CFG.groups.find(g => g.searchable)?.key || 'ticker';
+  const issuers = [...new Set(all.map(b => b[tickerKey]).filter(Boolean))];
   document.getElementById('statIssuer').textContent =
-    issuers.length === 1 ? issuers[0] : `${issuers.length} issuers`;
+    issuers.length === 1 ? issuers[0] : issuers.length ? `${issuers.length} issuers` : '—';
   document.getElementById('statBonds').textContent  = new Set(all.map(b => b.isin)).size;
   document.getElementById('statAvgOas').textContent =
     Math.round(oas.reduce((a,b)=>a+b,0)/oas.length);
@@ -541,19 +577,30 @@ function resetCols() {
 }
 
 // ── TABLE RENDER ────────────────────────────────────────────────────────────
+const TABLE_MAX_ROWS = 500;
+
 function renderTable(bonds) {
-  const cols   = activeCols();
-  const sorted = [...bonds].sort((a, b) => (a.ttm ?? 0) - (b.ttm ?? 0));
+  const cols    = activeCols();
+  const sorted  = [...bonds].sort((a, b) => (a.ttm ?? 0) - (b.ttm ?? 0));
+  const display = sorted.length > TABLE_MAX_ROWS ? sorted.slice(0, TABLE_MAX_ROWS) : sorted;
 
   document.getElementById("tableHead").innerHTML =
     cols.map(c => `<th>${c.label.toUpperCase()}</th>`).join("");
 
-  document.getElementById("bondTable").innerHTML = sorted.map(b => `
+  const rows = display.map(b => `
     <tr onclick="highlightBond('${String(b.isin).replace(/'/g, "\\'")}')"
         class="${b.isin === state.highlightedISIN ? "highlighted" : ""}">
       ${cols.map(c => c.render(b)).join("")}
     </tr>
   `).join("");
+
+  const footer = sorted.length > TABLE_MAX_ROWS
+    ? `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);font-size:9px;padding:6px">
+         Showing ${TABLE_MAX_ROWS} of ${sorted.length} bonds
+       </td></tr>`
+    : "";
+
+  document.getElementById("bondTable").innerHTML = rows + footer;
 }
 
 function renderSubtitle() {
@@ -661,6 +708,11 @@ function highlightBond(isin) {
     const row = document.querySelector("#bondTable tr.highlighted");
     if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+}
+
+function resetChartZoom() {
+  if (chart) chart.resetZoom();
+  document.getElementById('btnResetZoom').style.display = 'none';
 }
 
 function setChartType(type) {
@@ -1263,6 +1315,8 @@ function promptSaveView() {
     xField: state.xField,
     yField: state.yField,
     fitCfg: { ...state.fitCfg },
+    picker: { ...state.picker },
+    datasetSig: getDatasetSig(),
   });
   saveViewsStore(views);
 
@@ -1270,6 +1324,11 @@ function promptSaveView() {
   if (document.getElementById("viewsPanel").classList.contains("open")) {
     renderViewsList();
   }
+}
+
+function getDatasetSig() {
+  if (!allData.length) return '';
+  return Object.keys(allData[0]).sort().join(',');
 }
 
 function loadView(idx) {
@@ -1289,9 +1348,14 @@ function loadView(idx) {
 
   state.selections = valid;
 
-  // force-clear picker so no preview shows — user clicks sidebar to get it back
-  state.picker = {};
-  CFG.groups.forEach(g => { state.picker[g.key] = null; });
+  // restore picker filters only if dataset matches
+  const sameDataset = v.datasetSig && v.datasetSig === getDatasetSig();
+  if (sameDataset && v.picker) {
+    state.picker = { ...v.picker };
+  } else {
+    state.picker = {};
+    CFG.groups.forEach(g => { state.picker[g.key] = null; });
+  }
   renderAllGroupSteps();
 
   if (v.chartType) {
@@ -1423,20 +1487,18 @@ async function init() {
 
   try {
     const r = await fetch('data.json');
-    if (!r.ok) throw new Error(`data.json: HTTP ${r.status}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     allData = await r.json();
-    console.log(`Loaded ${allData.length} bond records`);
+    allData.forEach(b => { b.ttm = getTTM(b.maturity, b.date); });
+    console.log(`Loaded ${allData.length} bond records from data.json`);
+    continueInit();
   } catch (err) {
-    document.getElementById('pickerSteps').innerHTML = `
-      <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
-        <b>Could not load data.json</b><br>
-        Run: <span style="color:var(--muted)">python dashboard.py</span><br>
-        Run: <span style="color:var(--muted)">python -m http.server 8000</span><br>
-        ${err.message}
-      </div>`;
-    return;
+    console.warn('data.json not available, showing file loader:', err.message);
+    showFileLoader();
   }
+}
 
+function continueInit() {
   detectColumns(allData[0]);
 
   const settings = loadSettings() || getDefaultSettings();
@@ -1473,6 +1535,203 @@ async function init() {
   renderAllGroupSteps();
   renderSelectionTags();
   fullRender();
+}
+
+// ── FILE LOADER ──────────────────────────────────────────────────────────────
+let _rawFileData = null;
+let _rawColumns  = [];
+let _dropZoneReady = false;
+
+const FILE_LOADER_FIELDS = [
+  { key: 'isin',     label: 'Bond ID',       hints: ['isin','id','bond_id','ticker','cusip','sedol','ric','name','issuer'] },
+  { key: 'oas',      label: 'Spread (bps)',  hints: ['oas','spread','zspread','z_spread','g_spread','gspread','asset_swap','oas_vs_govt','oasvgovt'] },
+  { key: 'maturity', label: 'Maturity Date', hints: ['maturity','mat','maturity_date','matdate','mat_date','expiry','redemption'] },
+  { key: 'date',     label: 'Snapshot Date', hints: ['date','snapshot_date','snap_date','period','as_of','asof','trade_date','report_date','valuation_date'] },
+];
+
+function showFileLoader() {
+  _rawFileData = null;
+  _rawColumns  = [];
+  const overlay = document.getElementById('fileLoaderOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('colMapper').style.display = 'none';
+  document.getElementById('colMapGrid').innerHTML = '';
+  document.getElementById('fileLoaderStatus').textContent = '';
+  setupDropZone();
+}
+
+function hideFileLoader() {
+  document.getElementById('fileLoaderOverlay').style.display = 'none';
+}
+
+function setupDropZone() {
+  if (_dropZoneReady) return;
+  _dropZoneReady = true;
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', e => {
+    if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag-over');
+  });
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processSelectedFile(file);
+  });
+}
+
+function handleFileInputChange(e) {
+  const file = e.target.files[0];
+  if (file) processSelectedFile(file);
+  e.target.value = '';
+}
+
+function setFileLoaderStatus(msg, color) {
+  const el = document.getElementById('fileLoaderStatus');
+  el.style.color = color || 'var(--muted)';
+  el.textContent = msg;
+}
+
+async function processSelectedFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  setFileLoaderStatus(`Reading ${file.name}…`);
+
+  try {
+    let rows;
+    if (ext === 'csv' || ext === 'xlsx' || ext === 'xls') {
+      rows = await parseWithSheetJS(file);
+    } else if (ext === 'parquet') {
+      rows = await parseParquetFile(file);
+    } else {
+      setFileLoaderStatus('Unsupported file type. Use .parquet, .csv, .xlsx or .xls', 'var(--neg)');
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
+      setFileLoaderStatus('File appears to be empty.', 'var(--neg)');
+      return;
+    }
+
+    _rawFileData = rows;
+    _rawColumns  = Object.keys(rows[0]);
+    setFileLoaderStatus(`${rows.length.toLocaleString()} rows · ${_rawColumns.length} columns — now map the fields below`);
+    showColumnMapper(_rawColumns);
+
+  } catch (err) {
+    console.error(err);
+    setFileLoaderStatus(`Error reading file: ${err.message}`, 'var(--neg)');
+  }
+}
+
+function parseWithSheetJS(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb   = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+        resolve(rows);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function parseParquetFile(file) {
+  const { parquetRead } = await import('https://esm.sh/hyparquet');
+  const asyncBuffer = {
+    byteLength: file.size,
+    slice: (start, end) => file.slice(start, end).arrayBuffer(),
+  };
+  return new Promise((resolve, reject) => {
+    parquetRead({ file: asyncBuffer, rowFormat: 'object', onComplete: resolve }).catch(reject);
+  });
+}
+
+function autoDetect(columns, hints) {
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normed = columns.map(norm);
+  for (const hint of hints) {
+    const idx = normed.findIndex(c => c === hint);
+    if (idx !== -1) return columns[idx];
+  }
+  for (const hint of hints) {
+    const idx = normed.findIndex(c => c.includes(hint));
+    if (idx !== -1) return columns[idx];
+  }
+  return '';
+}
+
+function showColumnMapper(columns) {
+  const grid = document.getElementById('colMapGrid');
+  grid.innerHTML = FILE_LOADER_FIELDS.map(f => {
+    const detected = autoDetect(columns, f.hints);
+    const opts = ['', ...columns].map(c =>
+      `<option value="${c}"${c === detected ? ' selected' : ''}>${c || '— select —'}</option>`
+    ).join('');
+    return `
+      <div class="col-map-row">
+        <div class="col-map-label">${f.label} <span class="req">*</span></div>
+        <select class="col-map-select" data-field="${f.key}">${opts}</select>
+      </div>`;
+  }).join('');
+  document.getElementById('colMapper').style.display = 'block';
+}
+
+function toDateStr(val) {
+  if (!val && val !== 0) return null;
+  if (val instanceof Date) return isNaN(val) ? null : val.toISOString().slice(0, 10);
+  const d = new Date(val);
+  return isNaN(d) ? null : d.toISOString().slice(0, 10);
+}
+
+function confirmLoadData() {
+  const selects = document.querySelectorAll('#colMapGrid .col-map-select');
+  const mapping = {};
+  let valid = true;
+
+  selects.forEach(sel => {
+    sel.style.borderColor = '';
+    if (!sel.value) { sel.style.borderColor = 'var(--neg)'; valid = false; }
+    else mapping[sel.dataset.field] = sel.value;
+  });
+
+  if (!valid) {
+    setFileLoaderStatus('Please map all required fields.', 'var(--neg)');
+    return;
+  }
+
+  setFileLoaderStatus('Processing…');
+
+  try {
+    const built = [];
+    for (const row of _rawFileData) {
+      const bond = { ...row };
+      for (const [dashKey, srcCol] of Object.entries(mapping)) {
+        bond[dashKey] = row[srcCol] ?? null;
+      }
+      bond.maturity = toDateStr(bond.maturity);
+      bond.date     = toDateStr(bond.date);
+      bond.oas      = parseFloat(bond.oas) || 0;
+      if (!bond.isin || !bond.maturity || !bond.date) continue;
+      built.push(bond);
+    }
+
+    if (built.length === 0) {
+      setFileLoaderStatus('No valid rows after mapping — check your column selections.', 'var(--neg)');
+      return;
+    }
+
+    allData = built;
+    allData.forEach(b => { b.ttm = getTTM(b.maturity, b.date); });
+    console.log(`Loaded ${allData.length} bonds from browser file`);
+    hideFileLoader();
+    continueInit();
+  } catch (err) {
+    setFileLoaderStatus(`Error: ${err.message}`, 'var(--neg)');
+  }
 }
 
 init();
