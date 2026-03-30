@@ -1452,21 +1452,18 @@ async function init() {
 
   try {
     const r = await fetch('data.json');
-    if (!r.ok) throw new Error(`data.json: HTTP ${r.status}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     allData = await r.json();
     allData.forEach(b => { b.ttm = getTTM(b.maturity, b.date); });
-    console.log(`Loaded ${allData.length} bond records`);
+    console.log(`Loaded ${allData.length} bond records from data.json`);
+    continueInit();
   } catch (err) {
-    document.getElementById('pickerSteps').innerHTML = `
-      <div style="padding:16px;font-size:10px;color:var(--neg);line-height:1.8">
-        <b>Could not load data.json</b><br>
-        Run: <span style="color:var(--muted)">python dashboard.py</span><br>
-        Run: <span style="color:var(--muted)">python -m http.server 8000</span><br>
-        ${err.message}
-      </div>`;
-    return;
+    console.warn('data.json not available, showing file loader:', err.message);
+    showFileLoader();
   }
+}
 
+function continueInit() {
   detectColumns(allData[0]);
 
   const settings = loadSettings() || getDefaultSettings();
@@ -1503,6 +1500,200 @@ async function init() {
   renderAllGroupSteps();
   renderSelectionTags();
   fullRender();
+}
+
+// ── FILE LOADER ──────────────────────────────────────────────────────────────
+let _rawFileData = null;
+let _rawColumns  = [];
+let _dropZoneReady = false;
+
+const FILE_LOADER_FIELDS = [
+  { key: 'isin',     label: 'Bond ID',       hints: ['isin','id','bond_id','ticker','cusip','sedol','ric','name','issuer'] },
+  { key: 'oas',      label: 'Spread (bps)',  hints: ['oas','spread','zspread','z_spread','g_spread','gspread','asset_swap','oas_vs_govt','oasvgovt'] },
+  { key: 'maturity', label: 'Maturity Date', hints: ['maturity','mat','maturity_date','matdate','mat_date','expiry','redemption'] },
+  { key: 'date',     label: 'Snapshot Date', hints: ['date','snapshot_date','snap_date','period','as_of','asof','trade_date','report_date','valuation_date'] },
+];
+
+function showFileLoader() {
+  const overlay = document.getElementById('fileLoaderOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('colMapper').style.display = 'none';
+  document.getElementById('fileLoaderStatus').textContent = '';
+  setupDropZone();
+}
+
+function hideFileLoader() {
+  document.getElementById('fileLoaderOverlay').style.display = 'none';
+}
+
+function setupDropZone() {
+  if (_dropZoneReady) return;
+  _dropZoneReady = true;
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', e => {
+    if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag-over');
+  });
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processSelectedFile(file);
+  });
+}
+
+function handleFileInputChange(e) {
+  const file = e.target.files[0];
+  if (file) processSelectedFile(file);
+  e.target.value = '';
+}
+
+function setFileLoaderStatus(msg, color) {
+  const el = document.getElementById('fileLoaderStatus');
+  el.style.color = color || 'var(--muted)';
+  el.textContent = msg;
+}
+
+async function processSelectedFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  setFileLoaderStatus(`Reading ${file.name}…`);
+
+  try {
+    let rows;
+    if (ext === 'csv' || ext === 'xlsx' || ext === 'xls') {
+      rows = await parseWithSheetJS(file);
+    } else if (ext === 'parquet') {
+      rows = await parseParquetFile(file);
+    } else {
+      setFileLoaderStatus('Unsupported file type. Use .parquet, .csv, .xlsx or .xls', 'var(--neg)');
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
+      setFileLoaderStatus('File appears to be empty.', 'var(--neg)');
+      return;
+    }
+
+    _rawFileData = rows;
+    _rawColumns  = Object.keys(rows[0]);
+    setFileLoaderStatus(`${rows.length.toLocaleString()} rows · ${_rawColumns.length} columns — now map the fields below`);
+    showColumnMapper(_rawColumns);
+
+  } catch (err) {
+    console.error(err);
+    setFileLoaderStatus(`Error reading file: ${err.message}`, 'var(--neg)');
+  }
+}
+
+function parseWithSheetJS(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb   = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+        resolve(rows);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function parseParquetFile(file) {
+  const { parquetRead } = await import('https://esm.sh/hyparquet');
+  const asyncBuffer = {
+    byteLength: file.size,
+    slice: (start, end) => file.slice(start, end).arrayBuffer(),
+  };
+  return new Promise((resolve, reject) => {
+    parquetRead({ file: asyncBuffer, rowFormat: 'object', onComplete: resolve }).catch(reject);
+  });
+}
+
+function autoDetect(columns, hints) {
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normed = columns.map(norm);
+  for (const hint of hints) {
+    const idx = normed.findIndex(c => c === hint);
+    if (idx !== -1) return columns[idx];
+  }
+  for (const hint of hints) {
+    const idx = normed.findIndex(c => c.includes(hint));
+    if (idx !== -1) return columns[idx];
+  }
+  return '';
+}
+
+function showColumnMapper(columns) {
+  const grid = document.getElementById('colMapGrid');
+  grid.innerHTML = FILE_LOADER_FIELDS.map(f => {
+    const detected = autoDetect(columns, f.hints);
+    const opts = ['', ...columns].map(c =>
+      `<option value="${c}"${c === detected ? ' selected' : ''}>${c || '— select —'}</option>`
+    ).join('');
+    return `
+      <div class="col-map-row">
+        <div class="col-map-label">${f.label} <span class="req">*</span></div>
+        <select class="col-map-select" data-field="${f.key}">${opts}</select>
+      </div>`;
+  }).join('');
+  document.getElementById('colMapper').style.display = 'block';
+}
+
+function toDateStr(val) {
+  if (!val && val !== 0) return null;
+  if (val instanceof Date) return isNaN(val) ? null : val.toISOString().slice(0, 10);
+  const d = new Date(val);
+  return isNaN(d) ? null : d.toISOString().slice(0, 10);
+}
+
+function confirmLoadData() {
+  const selects = document.querySelectorAll('#colMapGrid .col-map-select');
+  const mapping = {};
+  let valid = true;
+
+  selects.forEach(sel => {
+    sel.style.borderColor = '';
+    if (!sel.value) { sel.style.borderColor = 'var(--neg)'; valid = false; }
+    else mapping[sel.dataset.field] = sel.value;
+  });
+
+  if (!valid) {
+    setFileLoaderStatus('Please map all required fields.', 'var(--neg)');
+    return;
+  }
+
+  setFileLoaderStatus('Processing…');
+
+  try {
+    const built = [];
+    for (const row of _rawFileData) {
+      const bond = { ...row };
+      for (const [dashKey, srcCol] of Object.entries(mapping)) {
+        bond[dashKey] = row[srcCol] ?? null;
+      }
+      bond.maturity = toDateStr(bond.maturity);
+      bond.date     = toDateStr(bond.date);
+      bond.oas      = parseFloat(bond.oas) || 0;
+      if (!bond.isin || !bond.maturity || !bond.date) continue;
+      built.push(bond);
+    }
+
+    if (built.length === 0) {
+      setFileLoaderStatus('No valid rows after mapping — check your column selections.', 'var(--neg)');
+      return;
+    }
+
+    allData = built;
+    allData.forEach(b => { b.ttm = getTTM(b.maturity, b.date); });
+    console.log(`Loaded ${allData.length} bonds from browser file`);
+    hideFileLoader();
+    continueInit();
+  } catch (err) {
+    setFileLoaderStatus(`Error: ${err.message}`, 'var(--neg)');
+  }
 }
 
 init();
