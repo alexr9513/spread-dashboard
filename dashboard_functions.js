@@ -82,51 +82,69 @@ function setAxis(axis, field) {
 
 // ── DERIVED — all config-driven ─────────────────────────────────────────────
 
-function getGroupValues(groupIdx) {
+// Returns { values, countMap } for a filter group in a single allData pass.
+// countMap: Map(value → bond count), used by renderGroupStep to show counts without
+// calling countBondsForValue() once per option (which was O(N×options) over allData).
+function getGroupData(groupIdx) {
   const groups = CFG.groups;
   let bonds = allData;
 
   for (let j = 0; j < groupIdx; j++) {
     const g   = groups[j];
     const val = state.picker[g.key];
-    if (val == null) return [];
+    if (val == null) return { values: [], countMap: new Map() };
     if (g.all_option && val === g.default) continue;
     bonds = bonds.filter(b => b[g.key] === val);
   }
 
-  const g   = groups[groupIdx];
-  const set = new Set(bonds.map(b => b[g.key]));
-  let vals  = [...set];
+  const g = groups[groupIdx];
 
+  // For searchable groups count unique ISINs per value (mirrors old countBondsForValue logic)
+  let countMap;
+  if (g.searchable) {
+    const isinSets = new Map();
+    for (const b of bonds) {
+      const v = b[g.key];
+      if (!isinSets.has(v)) isinSets.set(v, new Set());
+      isinSets.get(v).add(b.isin);
+    }
+    countMap = new Map([...isinSets.entries()].map(([v, s]) => [v, s.size]));
+  } else {
+    countMap = new Map();
+    for (const b of bonds) {
+      const v = b[g.key];
+      countMap.set(v, (countMap.get(v) || 0) + 1);
+    }
+  }
+
+  let vals = [...countMap.keys()];
   if (g.sort === "desc") vals = vals.sort().reverse();
   else if (g.sort === "asc") vals = vals.sort();
   else vals = vals.sort((a, b) => typeof a === "string" ? a.localeCompare(b) : a - b);
 
   if (g.all_option) vals = [g.default, ...vals.filter(v => v !== g.default)];
-  return vals;
+  return { values: vals, countMap };
 }
 
-function countBondsForValue(groupIdx, value) {
-  const groups = CFG.groups;
-  let bonds = allData;
-  for (let j = 0; j <= groupIdx; j++) {
-    const g   = groups[j];
-    const val = j === groupIdx ? value : state.picker[g.key];
-    if (g.all_option && val === g.default) continue;
-    if (val != null) bonds = bonds.filter(b => b[g.key] === val);
-  }
-  if (CFG.groups[groupIdx].searchable) return new Set(bonds.map(b => b.isin)).size;
-  return bonds.length;
+function getGroupValues(groupIdx) {
+  return getGroupData(groupIdx).values;
 }
+
+// Cache filtered bond arrays by selection key — allData never changes so entries are
+// permanently valid. Avoids re-filtering the same 300k rows on every render call.
+const _selCache = new Map();
 
 function getBondsForSelection(sel) {
+  const key = CFG.groups.map(g => String(sel[g.key])).join('\x00');
+  if (_selCache.has(key)) return _selCache.get(key);
   let bonds = allData;
   for (const g of CFG.groups) {
     const val = sel[g.key];
     if (g.all_option && val === g.default) continue;
     if (val != null) bonds = bonds.filter(b => b[g.key] === val);
   }
-  return bonds.map(b => ({ ...b, ttm: getTTM(b.maturity, b.date) }));
+  _selCache.set(key, bonds);
+  return bonds;
 }
 
 function getAllActiveBonds() {
@@ -217,7 +235,7 @@ function renderChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 300 },
+      animation: false,
       interaction: { mode: 'nearest', intersect: true },
       onClick: (evt, elements) => {
         if (!elements.length) return;
@@ -336,7 +354,7 @@ function renderGroupStep(groupIdx, filter = "") {
   const el     = document.getElementById(`groupList_${g.key}`);
   if (!el) return;
 
-  const values = getGroupValues(groupIdx);
+  const { values, countMap } = getGroupData(groupIdx);
   const isLast = !!g.is_last;
 
   if (!values.length) {
@@ -350,7 +368,7 @@ function renderGroupStep(groupIdx, filter = "") {
       String(v).toLowerCase().includes(filter.toLowerCase())
     );
     el.innerHTML = filtered.map(v => {
-      const count = countBondsForValue(groupIdx, v);
+      const count = countMap.get(v) ?? 0;
       return `
         <div class="issuer-item ${state.picker[g.key] === v ? "active" : ""}"
              onclick="pickGroupValue(${groupIdx}, '${String(v).replace(/'/g, "\\'")}')">
@@ -363,7 +381,7 @@ function renderGroupStep(groupIdx, filter = "") {
 
   if (isLast) {
     el.innerHTML = values.map(v => {
-      const n = g.show_count ? countBondsForValue(groupIdx, v) : null;
+      const n = g.show_count ? (countMap.get(v) ?? 0) : null;
       return `
         <div class="date-item ${state.picker[g.key] === v ? "active" : ""}"
              onclick="pickGroupValue(${groupIdx}, '${String(v).replace(/'/g, "\\'")}')">
@@ -541,19 +559,30 @@ function resetCols() {
 }
 
 // ── TABLE RENDER ────────────────────────────────────────────────────────────
+const TABLE_MAX_ROWS = 500;
+
 function renderTable(bonds) {
-  const cols   = activeCols();
-  const sorted = [...bonds].sort((a, b) => (a.ttm ?? 0) - (b.ttm ?? 0));
+  const cols    = activeCols();
+  const sorted  = [...bonds].sort((a, b) => (a.ttm ?? 0) - (b.ttm ?? 0));
+  const display = sorted.length > TABLE_MAX_ROWS ? sorted.slice(0, TABLE_MAX_ROWS) : sorted;
 
   document.getElementById("tableHead").innerHTML =
     cols.map(c => `<th>${c.label.toUpperCase()}</th>`).join("");
 
-  document.getElementById("bondTable").innerHTML = sorted.map(b => `
+  const rows = display.map(b => `
     <tr onclick="highlightBond('${String(b.isin).replace(/'/g, "\\'")}')"
         class="${b.isin === state.highlightedISIN ? "highlighted" : ""}">
       ${cols.map(c => c.render(b)).join("")}
     </tr>
   `).join("");
+
+  const footer = sorted.length > TABLE_MAX_ROWS
+    ? `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);font-size:9px;padding:6px">
+         Showing ${TABLE_MAX_ROWS} of ${sorted.length} bonds
+       </td></tr>`
+    : "";
+
+  document.getElementById("bondTable").innerHTML = rows + footer;
 }
 
 function renderSubtitle() {
@@ -1425,6 +1454,7 @@ async function init() {
     const r = await fetch('data.json');
     if (!r.ok) throw new Error(`data.json: HTTP ${r.status}`);
     allData = await r.json();
+    allData.forEach(b => { b.ttm = getTTM(b.maturity, b.date); });
     console.log(`Loaded ${allData.length} bond records`);
   } catch (err) {
     document.getElementById('pickerSteps').innerHTML = `
